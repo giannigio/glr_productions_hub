@@ -127,6 +127,16 @@ export interface CrewDocument {
     fileUrl?: string; // Mock URL
 }
 
+export interface FinancialDocument {
+    id: string;
+    name: string;
+    type: 'Busta Paga' | 'CU';
+    month?: string; // '1' to '12'
+    year?: number;
+    uploadDate?: string;
+    fileUrl?: string;
+}
+
 export interface CrewMember {
   id: string;
   name: string;
@@ -149,6 +159,7 @@ export interface CrewMember {
   expenses: CrewExpense[];
   tasks?: CrewTask[]; // Extra tasks outside of jobs
   documents?: CrewDocument[];
+  financialDocuments?: FinancialDocument[];
 }
 
 export interface LocationPower {

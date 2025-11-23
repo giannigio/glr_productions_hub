@@ -18,12 +18,12 @@ let MOCK_SETTINGS: AppSettings = {
 
 // MOCK DATA
 let MOCK_INVENTORY: InventoryItem[] = [
-  { id: 'inv1', name: 'Shure SM58', category: 'Audio', quantityOwned: 10, weightKg: 0.3 },
-  { id: 'inv2', name: 'Yamaha QL1', category: 'Audio', quantityOwned: 2, weightKg: 15 },
-  { id: 'inv3', name: 'Robe Pointe', category: 'Luci', quantityOwned: 12, weightKg: 20 },
-  { id: 'inv4', name: 'Barra LED', category: 'Luci', quantityOwned: 20, weightKg: 2 },
-  { id: 'inv5', name: 'Samsung 55" 4K', category: 'Video', quantityOwned: 4, weightKg: 12 },
-  { id: 'inv6', name: 'Traliccio 2m 29x29', category: 'Strutture', quantityOwned: 30, weightKg: 8 },
+  { id: 'inv1', name: 'Shure SM58', category: 'Audio', quantityOwned: 10, weightKg: 0.3, accessories: 'Cavo XLR, Asta Microfono' },
+  { id: 'inv2', name: 'Yamaha QL1', category: 'Audio', quantityOwned: 2, weightKg: 15, accessories: 'Stagebox Rio, Cavo Cat6' },
+  { id: 'inv3', name: 'Robe Pointe', category: 'Luci', quantityOwned: 12, weightKg: 20, accessories: 'Ganci Aliscaf, Cavo DMX, Cavo Alimentazione' },
+  { id: 'inv4', name: 'Barra LED', category: 'Luci', quantityOwned: 20, weightKg: 2, accessories: 'Cavo DMX, Cavo Powercon' },
+  { id: 'inv5', name: 'Samsung 55" 4K', category: 'Video', quantityOwned: 4, weightKg: 12, accessories: 'Staffa da terra, Cavo HDMI, Cavo Alimentazione' },
+  { id: 'inv6', name: 'Traliccio 2m 29x29', category: 'Strutture', quantityOwned: 30, weightKg: 8, accessories: 'Pin & Spigot, Cubo' },
 ];
 
 let MOCK_JOBS: Job[] = [
@@ -151,6 +151,11 @@ let MOCK_CREW: CrewMember[] = [
               uploadDate: '2024-01-15',
               fileUrl: '#'
           }
+      ],
+      financialDocuments: [
+          { id: 'fd1', name: 'Busta Paga Gennaio', type: 'Busta Paga', month: '1', year: 2024, fileUrl: '#' },
+          { id: 'fd2', name: 'Busta Paga Febbraio', type: 'Busta Paga', month: '2', year: 2024, fileUrl: '#' },
+          { id: 'fd3', name: 'CU 2024', type: 'CU', year: 2024, fileUrl: '#' }
       ]
   },
   { 
@@ -165,7 +170,8 @@ let MOCK_CREW: CrewMember[] = [
       absences: [],
       expenses: [],
       tasks: [],
-      documents: []
+      documents: [],
+      financialDocuments: []
   },
   { 
       id: '3', 
@@ -179,7 +185,8 @@ let MOCK_CREW: CrewMember[] = [
       absences: [],
       expenses: [],
       tasks: [],
-      documents: []
+      documents: [],
+      financialDocuments: []
   },
 ];
 

@@ -26,9 +26,10 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   // Mock Authentication State
-  const [currentUser, setCurrentUser] = useState<{ name: string; role: SystemRole }>({
+  const [currentUser, setCurrentUser] = useState<{ id: string, name: string; role: SystemRole }>({
+      id: '1',
       name: 'Mario Rossi',
-      role: 'ADMIN' // Default for dev. Can switch to 'MANAGER' or 'TECH' to test
+      role: 'ADMIN' 
   });
 
   // Initial Data Fetch
@@ -118,6 +119,21 @@ const App: React.FC = () => {
       setSettings(updated);
   };
 
+  // Helper to switch user for simulation
+  const switchRole = (role: SystemRole) => {
+      if (role === 'TECH') {
+          // Switch to "Luca Bianchi" (ID 2 in mock)
+          setCurrentUser({ id: '2', name: 'Luca Bianchi', role: 'TECH' });
+      } else if (role === 'MANAGER') {
+          // Switch to "Giulia Verdi" (ID 3 in mock)
+          setCurrentUser({ id: '3', name: 'Giulia Verdi', role: 'MANAGER' });
+      } else {
+           // Switch to "Mario Rossi" (ID 1 in mock)
+          setCurrentUser({ id: '1', name: 'Mario Rossi', role: 'ADMIN' });
+      }
+      setActiveTab('DASHBOARD');
+  };
+
   const NavItem = ({ id, icon: Icon, label, visible = true }: { id: typeof activeTab, icon: any, label: string, visible?: boolean }) => {
     if (!visible) return null;
     return (
@@ -144,16 +160,16 @@ const App: React.FC = () => {
           <div className="w-10 h-10 bg-glr-accent rounded-lg flex items-center justify-center font-bold text-xl text-glr-900 shadow-lg shadow-amber-500/20">
             GLR
           </div>
-          <h1 className="text-xl font-bold tracking-tight">Productions</h1>
+          <h1 className="text-xl font-bold tracking-tight">HUB</h1>
         </div>
 
         <nav className="flex-1 space-y-2">
           <NavItem id="DASHBOARD" icon={LayoutDashboard} label="Dashboard" />
           <NavItem id="JOBS" icon={ClipboardList} label="Schede Lavoro" />
           <NavItem id="INVENTORY" icon={Package} label="Magazzino" />
+          <NavItem id="LOCATIONS" icon={MapPin} label="Locations" />
           
           {/* Permissions Logic */}
-          <NavItem id="LOCATIONS" icon={MapPin} label="Locations" visible={currentUser.role !== 'TECH'} />
           <NavItem id="CREW" icon={Users} label="Crew & Tecnici" visible={currentUser.role !== 'TECH'} />
           <NavItem id="EXPENSES" icon={FileText} label="Rimborsi" visible={currentUser.role === 'ADMIN'} />
         </nav>
@@ -165,7 +181,7 @@ const App: React.FC = () => {
               <p className="text-gray-500 mb-1 font-bold uppercase">Simula Ruolo (Dev)</p>
               <select 
                 value={currentUser.role}
-                onChange={e => setCurrentUser({...currentUser, role: e.target.value as SystemRole})}
+                onChange={e => switchRole(e.target.value as SystemRole)}
                 className="w-full bg-glr-900 text-white p-1 rounded border border-glr-700 outline-none"
               >
                   <option value="ADMIN">Admin</option>
@@ -205,7 +221,7 @@ const App: React.FC = () => {
                 <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-white">
                     {isMobileMenuOpen ? <X /> : <Menu />}
                 </button>
-                <span className="font-bold text-lg">GLR Productions</span>
+                <span className="font-bold text-lg">GLR HUB</span>
              </div>
 
              {/* Spacer for desktop alignment */}
@@ -271,7 +287,7 @@ const App: React.FC = () => {
             <NavItem id="DASHBOARD" icon={LayoutDashboard} label="Dashboard" />
             <NavItem id="JOBS" icon={ClipboardList} label="Schede Lavoro" />
             <NavItem id="INVENTORY" icon={Package} label="Magazzino" />
-            {currentUser.role !== 'TECH' && <NavItem id="LOCATIONS" icon={MapPin} label="Locations" />}
+            <NavItem id="LOCATIONS" icon={MapPin} label="Locations" />
             {currentUser.role !== 'TECH' && <NavItem id="CREW" icon={Users} label="Crew & Tecnici" />}
             <NavItem id="SETTINGS" icon={SettingsIcon} label="Impostazioni" />
             </div>
@@ -287,7 +303,14 @@ const App: React.FC = () => {
                 </div>
             ) : (
                 <>
-                {activeTab === 'DASHBOARD' && <Dashboard jobs={jobs} crew={currentUser.role === 'TECH' ? [] : crew} />}
+                {activeTab === 'DASHBOARD' && (
+                    <Dashboard 
+                        jobs={jobs} 
+                        crew={crew} 
+                        currentUser={currentUser}
+                        onUpdateCrew={handleUpdateCrew}
+                    />
+                )}
                 {activeTab === 'JOBS' && (
                     <Jobs 
                     jobs={jobs} 
@@ -308,12 +331,13 @@ const App: React.FC = () => {
                         onDeleteItem={handleDeleteInventory}
                     />
                 )}
-                {activeTab === 'LOCATIONS' && currentUser.role !== 'TECH' && (
+                {activeTab === 'LOCATIONS' && (
                     <Locations 
                         locations={locations}
                         onAddLocation={handleAddLocation}
                         onUpdateLocation={handleUpdateLocation}
                         onDeleteLocation={handleDeleteLocation}
+                        currentUser={currentUser}
                     />
                 )}
                 {activeTab === 'CREW' && currentUser.role !== 'TECH' && <Crew crew={crew} onUpdateCrew={handleUpdateCrew} jobs={jobs} />}

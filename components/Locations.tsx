@@ -1,18 +1,22 @@
 
 import React, { useState } from 'react';
 import { Location } from '../types';
-import { MapPin, Phone, Zap, Network, Truck, Monitor, Plus, Edit3, Trash2, Save, X, ExternalLink, Speaker, Box, FileText, Ruler } from 'lucide-react';
+import { MapPin, Phone, Zap, Network, Truck, Monitor, Plus, Edit3, Trash2, Save, X, ExternalLink, Speaker, Box, FileText, Ruler, Eye } from 'lucide-react';
 
 interface LocationsProps {
   locations: Location[];
   onAddLocation: (loc: Location) => void;
   onUpdateLocation: (loc: Location) => void;
   onDeleteLocation: (id: string) => void;
+  currentUser?: { role: 'ADMIN' | 'MANAGER' | 'TECH' };
 }
 
-export const Locations: React.FC<LocationsProps> = ({ locations, onAddLocation, onUpdateLocation, onDeleteLocation }) => {
+export const Locations: React.FC<LocationsProps> = ({ locations, onAddLocation, onUpdateLocation, onDeleteLocation, currentUser }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [activeLoc, setActiveLoc] = useState<Location | null>(null);
+
+  // PERMISSION CHECK: Everyone has full access to Locations now
+  const canEdit = true;
 
   const handleNew = () => {
     const newLoc: Location = {
@@ -450,7 +454,9 @@ export const Locations: React.FC<LocationsProps> = ({ locations, onAddLocation, 
         </div>
 
         <div className="mt-8 flex justify-end gap-3 pt-4 border-t border-glr-700">
-            <button onClick={() => setIsEditing(false)} className="px-4 py-2 text-gray-300 hover:bg-glr-700 rounded">Annulla</button>
+            <button onClick={() => setIsEditing(false)} className="px-4 py-2 text-gray-300 hover:bg-glr-700 rounded">
+                Annulla
+            </button>
             <button onClick={handleSave} className="flex items-center gap-2 px-6 py-2 bg-glr-accent text-glr-900 font-bold rounded hover:bg-amber-400">
                 <Save size={18} /> Salva Location
             </button>
@@ -464,7 +470,7 @@ export const Locations: React.FC<LocationsProps> = ({ locations, onAddLocation, 
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-white">Database Locations</h2>
         <button onClick={handleNew} className="flex items-center gap-2 bg-glr-accent text-glr-900 font-bold px-4 py-2 rounded-lg hover:bg-amber-400 transition-colors">
-          <Plus size={20} /> Nuova Location
+            <Plus size={20} /> Nuova Location
         </button>
       </div>
 
@@ -509,8 +515,10 @@ export const Locations: React.FC<LocationsProps> = ({ locations, onAddLocation, 
                     </a>
                 )}
                 <div className="flex gap-2 ml-auto">
-                    <button onClick={() => { setActiveLoc(loc); setIsEditing(true); }} className="text-gray-400 hover:text-white p-1"><Edit3 size={16} /></button>
-                    <button onClick={() => onDeleteLocation(loc.id)} className="text-gray-400 hover:text-red-400 p-1"><Trash2 size={16} /></button>
+                    <button onClick={() => { setActiveLoc(loc); setIsEditing(true); }} className="text-gray-400 hover:text-white p-1" title="Modifica">
+                        <Edit3 size={16} />
+                    </button>
+                    <button onClick={() => onDeleteLocation(loc.id)} className="text-gray-400 hover:text-red-400 p-1" title="Elimina"><Trash2 size={16} /></button>
                 </div>
             </div>
           </div>

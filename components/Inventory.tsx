@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { InventoryItem } from '../types';
-import { Package, Search, Plus, Trash2, Edit3, X, Save, Scale, Speaker, Monitor, Zap, Box, Cable, Upload, FileText, Settings, Radio, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Package, Search, Plus, Trash2, Edit3, X, Save, Scale, Speaker, Monitor, Zap, Box, Cable, Upload, FileText, Settings, Radio, ChevronLeft, ChevronRight, Lightbulb } from 'lucide-react';
 
 interface InventoryProps {
   inventory: InventoryItem[];
@@ -102,19 +102,23 @@ export const Inventory: React.FC<InventoryProps> = ({ inventory, onAddItem, onUp
           const lines = text.split(/\r?\n/);
           let importCount = 0;
 
+          // Header Expected: id;Categoria;Tipologia;Quantità;Attrezzatura;Correlati;Accessori/Kit;Tipo Correlazione;Note;Stato;Seriale
           for (let i = 1; i < lines.length; i++) {
               const line = lines[i].trim();
               if (!line) continue;
               const cols = line.split(';');
               
+              // Mapping based on the specific CSV structure provided in prompt
               const category = cols[1]?.trim() || 'Altro';
               const type = cols[2]?.trim();
               const qty = parseInt(cols[3]) || 0;
-              const name = cols[4]?.trim();
+              const name = cols[4]?.trim(); // "Attrezzatura" column is Name
               
               if (!name) continue; 
 
-              const accessories = [cols[5], cols[6]].filter(Boolean).join(', ');
+              // Merge Correlati and Accessori for search suggestions
+              const accessories = [cols[5], cols[6]].filter(Boolean).map(s => s.trim()).join(', ');
+              
               const notes = cols[8]?.trim();
               const status = cols[9]?.trim();
               const serial = cols[10]?.trim();
@@ -135,7 +139,7 @@ export const Inventory: React.FC<InventoryProps> = ({ inventory, onAddItem, onUp
               onAddItem(newItem);
               importCount++;
           }
-          alert(`Importazione completata! ${importCount} articoli aggiunti.`);
+          alert(`Importazione completata! ${importCount} articoli aggiunti correttamente.`);
       };
       reader.readAsText(file);
       if(fileInputRef.current) fileInputRef.current.value = '';
@@ -160,7 +164,7 @@ export const Inventory: React.FC<InventoryProps> = ({ inventory, onAddItem, onUp
                 />
             </div>
             <button onClick={() => fileInputRef.current?.click()} className="bg-glr-800 text-gray-300 border border-glr-700 font-bold px-3 py-2 rounded-lg hover:text-white flex items-center gap-2" title="Importa CSV">
-                <Upload size={20} /> <span className="hidden sm:inline">Importa</span>
+                <Upload size={20} /> <span className="hidden sm:inline">Importa CSV</span>
             </button>
             <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv" className="hidden" />
             
@@ -250,10 +254,20 @@ export const Inventory: React.FC<InventoryProps> = ({ inventory, onAddItem, onUp
                           </div>
                       </div>
 
-                      <div>
-                          <label className="block text-xs text-gray-400 mb-1">Accessori / Correlati</label>
-                          <textarea value={activeItem.accessories || ''} onChange={e => setActiveItem({...activeItem, accessories: e.target.value})} 
-                            className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white h-16 text-sm" />
+                      <div className="bg-glr-900/50 p-3 rounded-lg border border-glr-700/50">
+                          <label className="block text-xs font-bold text-glr-accent mb-1 flex items-center gap-2">
+                             <Lightbulb size={12}/> Accessori / Correlati (Suggerimenti)
+                          </label>
+                          <textarea 
+                            value={activeItem.accessories || ''} 
+                            onChange={e => setActiveItem({...activeItem, accessories: e.target.value})} 
+                            className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white h-16 text-sm mb-1"
+                            placeholder="Es. Cavo HDMI, Staffa, Batterie..."
+                          />
+                          <p className="text-[10px] text-gray-500 leading-tight">
+                              Inserisci qui i nomi degli articoli (separati da virgola) che verranno suggeriti automaticamente 
+                              nella Scheda Lavoro quando si seleziona questo prodotto.
+                          </p>
                       </div>
 
                       <div>
@@ -308,7 +322,7 @@ export const Inventory: React.FC<InventoryProps> = ({ inventory, onAddItem, onUp
                             <td className="p-4 text-sm text-gray-400 max-w-xs">
                                 {item.accessories && (
                                     <div className="flex items-center gap-1 mb-1" title="Accessori/Correlati">
-                                        <Settings size={12} className="shrink-0"/> <span className="truncate">{item.accessories}</span>
+                                        <Settings size={12} className="shrink-0 text-glr-accent"/> <span className="truncate">{item.accessories}</span>
                                     </div>
                                 )}
                                 {item.notes && (
