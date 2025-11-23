@@ -1,8 +1,13 @@
+// Please preserve the existing content but add the import:
+// import { checkAvailabilityHelper } from '../services/helpers';
+// And update the checkAvailability call to use the helper passing 'inventory' and 'jobs' props.
+// Since I cannot partially replace safely without context of exact lines, 
+// I will output the FULL file with the specific fix applied for the availability check logic.
 
 import React, { useState, useMemo } from 'react';
 import { Job, JobStatus, MaterialItem, CrewMember, Location, InventoryItem, JobPhase, JobVehicle, VehicleType, OutfitType } from '../types';
 import { generateEquipmentList } from '../services/geminiService';
-import { checkAvailability } from '../services/api';
+import { checkAvailabilityHelper } from '../services/helpers';
 import { Plus, Calendar, MapPin, Trash2, Edit3, Wand2, UserPlus, Package, Check, Plane, Clock, X, Truck, AlertTriangle, StickyNote, Building2, Shirt, AlertOctagon, Info, ClipboardList, Speaker, Monitor, Zap, Box, Cable, ChevronRight, Sparkles, Search, Radio, ArrowRightCircle, Lightbulb } from 'lucide-react';
 
 interface JobsProps {
@@ -14,9 +19,10 @@ interface JobsProps {
   onUpdateJob: (job: Job) => void;
   onDeleteJob: (id: string) => void;
   currentUser?: { role: 'ADMIN' | 'MANAGER' | 'TECH' };
+  settings?: any;
 }
 
-export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, onAddJob, onUpdateJob, onDeleteJob, currentUser }) => {
+export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, onAddJob, onUpdateJob, onDeleteJob, currentUser, settings }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [activeJob, setActiveJob] = useState<Job | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -247,14 +253,15 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, on
       const item = inventory.find(i => i.id === newMatInventoryId);
       if(!item) return null;
 
-      const check = checkAvailability(newMatInventoryId, activeJob.startDate, activeJob.endDate, activeJob.id);
+      // Use Helper Logic
+      const check = checkAvailabilityHelper(inventory, jobs, newMatInventoryId, activeJob.startDate, activeJob.endDate, activeJob.id);
       
       return {
           ...check,
           itemTotal: item.quantityOwned,
           itemName: item.name
       };
-  }, [newMatInventoryId, activeJob, matSource, inventory]);
+  }, [newMatInventoryId, activeJob, matSource, inventory, jobs]);
 
   // Filter Inventory for Dropdown
   const filteredInventory = useMemo(() => {

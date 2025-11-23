@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Dashboard } from './components/Dashboard';
 import { Jobs } from './components/Jobs';
@@ -7,6 +6,7 @@ import { Locations } from './components/Locations';
 import { Inventory } from './components/Inventory'; 
 import { ExpensesDashboard } from './components/ExpensesDashboard';
 import { Settings } from './components/Settings';
+import { Login } from './components/Login';
 import { Job, CrewMember, Location, InventoryItem, Notification, SystemRole, AppSettings } from './types';
 import { api } from './services/api'; 
 import { LayoutDashboard, ClipboardList, Users, Settings as SettingsIcon, LogOut, Menu, X, Loader2, MapPin, Package, Bell, Info, AlertTriangle, CheckCircle, FileText } from 'lucide-react';
@@ -25,17 +25,26 @@ const App: React.FC = () => {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Mock Authentication State
-  const [currentUser, setCurrentUser] = useState<{ id: string, name: string; role: SystemRole }>({
-      id: '1',
-      name: 'Mario Rossi',
-      role: 'ADMIN' 
-  });
+  // Authentication State
+  const [currentUser, setCurrentUser] = useState<{ id: string, name: string; role: SystemRole } | null>(null);
 
-  // Initial Data Fetch
   useEffect(() => {
+    // Check local storage for session
+    const savedUser = localStorage.getItem('glr_user');
+    const savedToken = localStorage.getItem('glr_token');
+    
+    if (savedUser && savedToken) {
+        setCurrentUser(JSON.parse(savedUser));
+    }
+    setIsLoading(false); // Finished checking auth
+  }, []);
+
+  // Data Fetching Effect - Only if logged in
+  useEffect(() => {
+    if (!currentUser) return;
+
     const loadData = async () => {
-      setIsLoading(true);
+      // Small delay to ensure render
       try {
         const [fetchedJobs, fetchedCrew, fetchedLocations, fetchedInventory, fetchedNotifs, fetchedSettings] = await Promise.all([
           api.getJobs(),
@@ -53,13 +62,18 @@ const App: React.FC = () => {
         setSettings(fetchedSettings);
       } catch (error) {
         console.error("Failed to load data", error);
-      } finally {
-        setIsLoading(false);
       }
     };
 
     loadData();
-  }, []);
+  }, [currentUser]);
+
+  // Logout Handler
+  const handleLogout = () => {
+      localStorage.removeItem('glr_user');
+      localStorage.removeItem('glr_token');
+      setCurrentUser(null);
+  };
 
   // CRUD Handlers
   const handleAddJob = async (job: Job) => {
@@ -119,21 +133,6 @@ const App: React.FC = () => {
       setSettings(updated);
   };
 
-  // Helper to switch user for simulation
-  const switchRole = (role: SystemRole) => {
-      if (role === 'TECH') {
-          // Switch to "Luca Bianchi" (ID 2 in mock)
-          setCurrentUser({ id: '2', name: 'Luca Bianchi', role: 'TECH' });
-      } else if (role === 'MANAGER') {
-          // Switch to "Giulia Verdi" (ID 3 in mock)
-          setCurrentUser({ id: '3', name: 'Giulia Verdi', role: 'MANAGER' });
-      } else {
-           // Switch to "Mario Rossi" (ID 1 in mock)
-          setCurrentUser({ id: '1', name: 'Mario Rossi', role: 'ADMIN' });
-      }
-      setActiveTab('DASHBOARD');
-  };
-
   const NavItem = ({ id, icon: Icon, label, visible = true }: { id: typeof activeTab, icon: any, label: string, visible?: boolean }) => {
     if (!visible) return null;
     return (
@@ -151,15 +150,29 @@ const App: React.FC = () => {
     );
   };
 
+  // --- RENDER ---
+
+  if (isLoading) {
+      return <div className="min-h-screen bg-[#0f172a] flex items-center justify-center text-white"><Loader2 className="animate-spin"/></div>
+  }
+
+  if (!currentUser) {
+      return <Login onLoginSuccess={setCurrentUser} />;
+  }
+
   return (
     <div className="flex h-screen bg-glr-900 text-gray-100 overflow-hidden font-sans">
       
       {/* Sidebar - Desktop */}
       <aside className="hidden md:flex flex-col w-64 bg-glr-900 border-r border-glr-800 p-4 shrink-0 z-20">
         <div className="flex items-center gap-3 mb-8 px-2">
-          <div className="w-10 h-10 bg-glr-accent rounded-lg flex items-center justify-center font-bold text-xl text-glr-900 shadow-lg shadow-amber-500/20">
-            GLR
-          </div>
+          {settings?.logoUrl ? (
+               <img src={settings.logoUrl} className="w-10 h-10 object-contain brightness-0 invert" alt="GLR" />
+          ) : (
+            <div className="w-10 h-10 bg-glr-accent rounded-lg flex items-center justify-center font-bold text-xl text-glr-900 shadow-lg shadow-amber-500/20">
+                GLR
+            </div>
+          )}
           <h1 className="text-xl font-bold tracking-tight">HUB</h1>
         </div>
 
@@ -175,21 +188,6 @@ const App: React.FC = () => {
         </nav>
 
         <div className="border-t border-glr-800 pt-4 mt-auto space-y-2">
-          
-          {/* Role Switcher for Testing */}
-          <div className="bg-glr-800 p-2 rounded text-xs">
-              <p className="text-gray-500 mb-1 font-bold uppercase">Simula Ruolo (Dev)</p>
-              <select 
-                value={currentUser.role}
-                onChange={e => switchRole(e.target.value as SystemRole)}
-                className="w-full bg-glr-900 text-white p-1 rounded border border-glr-700 outline-none"
-              >
-                  <option value="ADMIN">Admin</option>
-                  <option value="MANAGER">Manager</option>
-                  <option value="TECH">Tecnico</option>
-              </select>
-          </div>
-
           <button 
             onClick={() => setActiveTab('SETTINGS')}
             className={`flex items-center gap-3 w-full p-3 rounded-lg transition-all ${activeTab === 'SETTINGS' ? 'bg-glr-accent text-glr-900 font-bold' : 'text-gray-400 hover:text-white'}`}
@@ -198,16 +196,19 @@ const App: React.FC = () => {
             <span>Impostazioni</span>
           </button>
           
-          <div className="flex items-center gap-3 w-full p-3 rounded-lg text-gray-400">
-            <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-xs font-bold">
+          <button 
+            onClick={handleLogout}
+            className="flex items-center gap-3 w-full p-3 rounded-lg text-gray-400 hover:bg-glr-800 hover:text-white transition-colors"
+          >
+            <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-xs font-bold text-white">
                 {currentUser.name.charAt(0)}
             </div>
-            <div className="flex-1">
+            <div className="flex-1 text-left">
               <p className="text-sm font-medium text-white">{currentUser.name}</p>
               <p className="text-xs text-gray-500">{currentUser.role}</p>
             </div>
             <LogOut size={16} />
-          </div>
+          </button>
         </div>
       </aside>
 
@@ -290,61 +291,56 @@ const App: React.FC = () => {
             <NavItem id="LOCATIONS" icon={MapPin} label="Locations" />
             {currentUser.role !== 'TECH' && <NavItem id="CREW" icon={Users} label="Crew & Tecnici" />}
             <NavItem id="SETTINGS" icon={SettingsIcon} label="Impostazioni" />
+            <button onClick={handleLogout} className="flex items-center gap-3 w-full p-3 text-gray-400 bg-gray-800 rounded-lg mt-4">
+                <LogOut size={20}/> Logout
+            </button>
             </div>
         )}
 
         {/* Main Viewport */}
         <main className="flex-1 overflow-auto p-4 md:p-8 bg-[#0b1120]">
             <div className="max-w-7xl mx-auto h-full">
-            {isLoading ? (
-                <div className="flex flex-col items-center justify-center h-[60vh] text-gray-400">
-                <Loader2 className="animate-spin mb-4 text-glr-accent" size={48} />
-                <p>Caricamento dati aziendali...</p>
-                </div>
-            ) : (
-                <>
-                {activeTab === 'DASHBOARD' && (
-                    <Dashboard 
-                        jobs={jobs} 
-                        crew={crew} 
-                        currentUser={currentUser}
-                        onUpdateCrew={handleUpdateCrew}
-                    />
-                )}
-                {activeTab === 'JOBS' && (
-                    <Jobs 
+            {activeTab === 'DASHBOARD' && (
+                <Dashboard 
                     jobs={jobs} 
-                    crew={crew}
-                    locations={locations}
-                    inventory={inventory}
-                    onAddJob={handleAddJob} 
-                    onUpdateJob={handleUpdateJob} 
-                    onDeleteJob={handleDeleteJob}
-                    currentUser={currentUser} 
-                    />
-                )}
-                {activeTab === 'INVENTORY' && (
-                    <Inventory 
-                        inventory={inventory}
-                        onAddItem={handleAddInventory}
-                        onUpdateItem={handleUpdateInventory}
-                        onDeleteItem={handleDeleteInventory}
-                    />
-                )}
-                {activeTab === 'LOCATIONS' && (
-                    <Locations 
-                        locations={locations}
-                        onAddLocation={handleAddLocation}
-                        onUpdateLocation={handleUpdateLocation}
-                        onDeleteLocation={handleDeleteLocation}
-                        currentUser={currentUser}
-                    />
-                )}
-                {activeTab === 'CREW' && currentUser.role !== 'TECH' && <Crew crew={crew} onUpdateCrew={handleUpdateCrew} jobs={jobs} />}
-                {activeTab === 'EXPENSES' && currentUser.role === 'ADMIN' && <ExpensesDashboard crew={crew} jobs={jobs} />}
-                {activeTab === 'SETTINGS' && settings && <Settings settings={settings} onUpdateSettings={handleUpdateSettings} />}
-                </>
+                    crew={crew} 
+                    currentUser={currentUser}
+                    onUpdateCrew={handleUpdateCrew}
+                />
             )}
+            {activeTab === 'JOBS' && (
+                <Jobs 
+                jobs={jobs} 
+                crew={crew}
+                locations={locations}
+                inventory={inventory}
+                onAddJob={handleAddJob} 
+                onUpdateJob={handleUpdateJob} 
+                onDeleteJob={handleDeleteJob}
+                currentUser={currentUser}
+                settings={settings} 
+                />
+            )}
+            {activeTab === 'INVENTORY' && (
+                <Inventory 
+                    inventory={inventory}
+                    onAddItem={handleAddInventory}
+                    onUpdateItem={handleUpdateInventory}
+                    onDeleteItem={handleDeleteInventory}
+                />
+            )}
+            {activeTab === 'LOCATIONS' && (
+                <Locations 
+                    locations={locations}
+                    onAddLocation={handleAddLocation}
+                    onUpdateLocation={handleUpdateLocation}
+                    onDeleteLocation={handleDeleteLocation}
+                    currentUser={currentUser}
+                />
+            )}
+            {activeTab === 'CREW' && currentUser.role !== 'TECH' && <Crew crew={crew} onUpdateCrew={handleUpdateCrew} jobs={jobs} settings={settings} />}
+            {activeTab === 'EXPENSES' && currentUser.role === 'ADMIN' && <ExpensesDashboard crew={crew} jobs={jobs} />}
+            {activeTab === 'SETTINGS' && settings && <Settings settings={settings} onUpdateSettings={handleUpdateSettings} />}
             </div>
         </main>
       </div>

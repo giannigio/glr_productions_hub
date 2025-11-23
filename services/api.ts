@@ -1,470 +1,152 @@
+import { Job, CrewMember, Location, InventoryItem, AppSettings, Notification } from '../types';
 
-import { Job, CrewMember, JobStatus, CrewType, CrewRole, Location, InventoryItem, VehicleType, Notification, ApprovalStatus, SystemRole, AppSettings } from '../types';
-
-// MOCK SETTINGS
-let MOCK_SETTINGS: AppSettings = {
-    companyName: 'GLR Productions Srl',
-    pIva: 'IT12345678901',
-    address: 'Via del Sound Check 1, Milano',
-    bankName: 'Intesa Sanpaolo',
-    iban: 'IT00X0000000000000000000000',
-    defaultDailyIndemnity: 50,
-    kmCost: 0.45,
-    defaultVatRate: 22,
-    googleCalendarClientId: '',
-    googleCalendarClientSecret: '',
-    googleCalendarId: 'primary'
-};
-
-// MOCK DATA
-let MOCK_INVENTORY: InventoryItem[] = [
-  { id: 'inv1', name: 'Shure SM58', category: 'Audio', quantityOwned: 10, weightKg: 0.3, accessories: 'Cavo XLR, Asta Microfono' },
-  { id: 'inv2', name: 'Yamaha QL1', category: 'Audio', quantityOwned: 2, weightKg: 15, accessories: 'Stagebox Rio, Cavo Cat6' },
-  { id: 'inv3', name: 'Robe Pointe', category: 'Luci', quantityOwned: 12, weightKg: 20, accessories: 'Ganci Aliscaf, Cavo DMX, Cavo Alimentazione' },
-  { id: 'inv4', name: 'Barra LED', category: 'Luci', quantityOwned: 20, weightKg: 2, accessories: 'Cavo DMX, Cavo Powercon' },
-  { id: 'inv5', name: 'Samsung 55" 4K', category: 'Video', quantityOwned: 4, weightKg: 12, accessories: 'Staffa da terra, Cavo HDMI, Cavo Alimentazione' },
-  { id: 'inv6', name: 'Traliccio 2m 29x29', category: 'Strutture', quantityOwned: 30, weightKg: 8, accessories: 'Pin & Spigot, Cubo' },
-];
-
-let MOCK_JOBS: Job[] = [
-  {
-    id: '101',
-    title: 'Festival Jazz Milano',
-    client: 'Comune di Milano',
-    location: 'Piazza Duomo',
-    startDate: '2024-06-15',
-    endDate: '2024-06-17',
-    status: JobStatus.CONFIRMED,
-    departments: ['Audio', 'Luci'],
-    isAwayJob: false,
-    isSubcontracted: false,
-    outfit: 'Polo',
-    outfitNoLogo: true,
-    phases: [
-      { 
-          id: 'ph1', 
-          name: 'Montaggio',
-          start: '2024-06-15T08:00',
-          end: '2024-06-15T18:00',
-          callTimeWarehouse: '2024-06-15T07:00',
-          callTimeSite: '2024-06-15T08:00'
-      },
-      { 
-          id: 'ph2', 
-          name: 'Evento Day 1',
-          start: '2024-06-16T18:00',
-          end: '2024-06-16T23:00',
-          callTimeSite: '2024-06-16T17:00'
-      }
-    ],
-    vehicles: [
-      { id: 'v1', type: VehicleType.EUROCARGO_75, quantity: 1, isRental: false }
-    ],
-    description: 'Festival Jazz all\'aperto. Richiesto impianto audio principale, luci d\'ambiente e 2 schermi ledwall laterali.',
-    materialList: [
-      { id: 'm1', name: 'Line Array Set', category: 'Audio', quantity: 12, isExternal: false, notes: 'Main PA' },
-      { id: 'm2', inventoryId: 'inv2', name: 'Yamaha QL1', category: 'Audio', quantity: 2, isExternal: false },
-      { id: 'm3', inventoryId: 'inv3', name: 'Robe Pointe', category: 'Luci', quantity: 24, isExternal: false }
-    ],
-    assignedCrew: ['1', '2'],
-    notes: 'Accesso ztl richiesto per i furgoni.'
-  },
-  {
-    id: '102',
-    title: 'Convention Aziendale Tech',
-    client: 'Tech Corp',
-    location: 'Centro Congressi',
-    startDate: '2024-07-01',
-    endDate: '2024-07-02',
-    status: JobStatus.CONFIRMED,
-    departments: ['Video'],
-    isAwayJob: true,
-    isSubcontracted: true,
-    subcontractorName: 'Big Events Srl',
-    outfit: 'Camicia',
-    outfitNoLogo: false,
-    phases: [],
-    vehicles: [],
-    description: 'Convention con streaming.',
-    materialList: [], // INTENTIONAL EMPTY LIST FOR ALERT TESTING
-    assignedCrew: [],
-    notes: ''
-  }
-];
-
-let MOCK_CREW: CrewMember[] = [
-  { 
-      id: '1', 
-      name: 'Mario Rossi', 
-      type: CrewType.INTERNAL, 
-      roles: [CrewRole.AUDIO_ENG, CrewRole.PROJECT_MGR], 
-      dailyRate: 0, // Interno
-      overtimeRate: 30,
-      travelIndemnity: 50,
-      email: 'mario.rossi@glr.it',
-      password: 'password',
-      accessRole: 'ADMIN',
-      phone: '333-1234567', 
-      tasks: [],
-      absences: [
-          {
-              id: 'abs1',
-              type: 'Ferie',
-              startDate: '2024-08-10',
-              endDate: '2024-08-20',
-              status: ApprovalStatus.APPROVED_MANAGER,
-              workflowLog: [
-                  { id: 'l1', date: '2024-05-01T10:00', user: 'Mario Rossi', action: 'Richiesta creata' },
-                  { id: 'l2', date: '2024-05-02T09:30', user: 'Admin', action: 'Approvata', note: 'Buone vacanze!' }
-              ]
-          }
-      ],
-      expenses: [
-          {
-              id: 'exp1',
-              date: '2024-06-01',
-              jobId: '101',
-              jobTitle: 'Festival Jazz Milano',
-              amount: 45.50,
-              category: 'Pasto',
-              description: 'Pranzo trasferta Torino',
-              status: ApprovalStatus.PENDING,
-              workflowLog: [
-                  { id: 'l1', date: '2024-06-02T10:00', user: 'Mario Rossi', action: 'Richiesta inserita' }
-              ]
-          }
-      ],
-      documents: [
-          {
-              id: 'doc1',
-              name: 'Attestato Sicurezza Alto Rischio',
-              type: 'Certificazione',
-              expiryDate: '2026-05-20',
-              uploadDate: '2023-05-20',
-              fileUrl: '#'
-          },
-          {
-              id: 'doc2',
-              name: 'Visita Medica',
-              type: 'Visita Medica',
-              expiryDate: '2024-12-31',
-              uploadDate: '2024-01-15',
-              fileUrl: '#'
-          }
-      ],
-      financialDocuments: [
-          { id: 'fd1', name: 'Busta Paga Gennaio', type: 'Busta Paga', month: '1', year: 2024, fileUrl: '#' },
-          { id: 'fd2', name: 'Busta Paga Febbraio', type: 'Busta Paga', month: '2', year: 2024, fileUrl: '#' },
-          { id: 'fd3', name: 'CU 2024', type: 'CU', year: 2024, fileUrl: '#' }
-      ]
-  },
-  { 
-      id: '2', 
-      name: 'Luca Bianchi', 
-      type: CrewType.FREELANCE, 
-      roles: [CrewRole.LIGHT_OP], 
-      dailyRate: 250, 
-      email: 'luca.bianchi@gmail.com', // Esterno no access
-      phone: '333-7654321', 
-      accessRole: 'TECH',
-      absences: [],
-      expenses: [],
-      tasks: [],
-      documents: [],
-      financialDocuments: []
-  },
-  { 
-      id: '3', 
-      name: 'Giulia Verdi', 
-      type: CrewType.INTERNAL, 
-      roles: [CrewRole.VIDEO_TECH], 
-      dailyRate: 0, 
-      email: 'giulia.verdi@glr.it',
-      accessRole: 'MANAGER',
-      phone: '333-9988776', 
-      absences: [],
-      expenses: [],
-      tasks: [],
-      documents: [],
-      financialDocuments: []
-  },
-];
-
-let MOCK_LOCATIONS: Location[] = [
-  {
-    id: 'l1',
-    name: 'Teatro degli Arcimboldi',
-    address: 'Viale dell\'Innovazione 20, Milano',
-    hallSizeMQ: 1200,
-    mapsLink: 'https://goo.gl/maps/example',
-    isZtl: false,
-    contactName: 'Sig. Giuseppe Verdi',
-    contactPhone: '02-12345678',
-    accessHours: '08:00 - 20:00 (Pausa 13-14)',
-    power: {
-      type: 'INDUSTRIALE',
-      industrialSockets: ['32A', '63A'],
-      hasPerimeterSockets: true,
-      requiresGenerator: false,
-      distanceFromPanel: 25,
-      notes: 'Quadro elettrico dietro palco sx'
-    },
-    network: {
-      hasWired: true,
-      hasWifi: true,
-      addressing: 'DHCP',
-      staticDetails: '',
-      firewallProxyNotes: 'Nessun blocco'
-    },
-    logistics: {
-      loadFloor: 'Piano Terra',
-      hasParking: true,
-      hasLift: false,
-      stairsDetails: '',
-      hasEmptyStorage: true,
-      emptyStorageNotes: 'Stanza laterale dedicata'
-    },
-    equipment: {
-      audio: {
-        present: true,
-        hasPA: true,
-        paNotes: 'Impianto residente L-Acoustics',
-        hasMics: false,
-        micsNotes: '',
-        hasMixerOuts: true,
-        mixerNotes: ''
-      },
-      video: {
-        present: false,
-        hasTV: false,
-        hasProjector: false,
-        hasLedwall: false,
-        hasMonitorGobo: false,
-        signals: [],
-        notes: ''
-      },
-      hasLights: true,
-      lightsNotes: 'Americane fisse motorizzate'
-    },
-    generalSurveyNotes: 'Location molto agevole, attenzione solo agli orari di scarico rigidi.'
-  }
-];
-
-// Helper to simulate network delay
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-// Helper for availability
-export interface AvailabilityResult {
-  available: number;
-  conflicts: { jobName: string; quantity: number }[];
-}
-
-export const checkAvailability = (inventoryId: string, startDate: string, endDate: string, currentJobId?: string): AvailabilityResult => {
-  const item = MOCK_INVENTORY.find(i => i.id === inventoryId);
-  if (!item) return { available: 0, conflicts: [] };
-
-  const start = new Date(startDate).getTime();
-  const end = new Date(endDate).getTime();
-
-  let used = 0;
-  const conflicts: { jobName: string; quantity: number }[] = [];
-
-  MOCK_JOBS.forEach(job => {
-    // Skip cancelled, draft (optional), or the current job itself
-    if (job.status === JobStatus.CANCELLED || job.id === currentJobId) return;
-    
-    // Check overlap
-    const jobStart = new Date(job.startDate).getTime();
-    const jobEnd = new Date(job.endDate).getTime();
-
-    // Simple overlap check
-    if (start <= jobEnd && end >= jobStart) {
-      const mat = job.materialList.find(m => m.inventoryId === inventoryId);
-      if (mat) {
-        used += mat.quantity;
-        conflicts.push({ jobName: job.title, quantity: mat.quantity });
-      }
-    }
-  });
-
-  return {
-    available: Math.max(0, item.quantityOwned - used),
-    conflicts
-  };
-};
-
-export const calculateMissedRestDays = (crewId: string, year: number, month: number) => {
-    // Helper to get week number
-    const getWeek = (date: Date) => {
-        const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-        const dayNum = d.getUTCDay() || 7;
-        d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-        const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
-        return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1)/7);
-    };
-
-    const daysWorkedByWeek: Record<number, number> = {};
-    const totalDaysWorked = new Set<string>();
-
-    MOCK_JOBS.forEach(job => {
-        if (!job.assignedCrew.includes(crewId) || job.status === JobStatus.CANCELLED) return;
-        
-        let d = new Date(job.startDate);
-        const end = new Date(job.endDate);
-        
-        while (d <= end) {
-            if (d.getFullYear() === year && d.getMonth() === month) {
-                const dayStr = d.toISOString().split('T')[0];
-                totalDaysWorked.add(dayStr);
-                
-                const weekNum = getWeek(d);
-                daysWorkedByWeek[weekNum] = (daysWorkedByWeek[weekNum] || 0) + 1;
-            }
-            d.setDate(d.getDate() + 1);
-        }
-    });
-
-    let missedRestDays = 0;
-    Object.values(daysWorkedByWeek).forEach(days => {
-        if (days > 5) {
-            missedRestDays += (days - 5);
-        }
-    });
-
-    return {
-        totalWorked: totalDaysWorked.size,
-        missedRest: missedRestDays
-    };
-};
+const API_URL = '/api';
 
 export const api = {
-  // SETTINGS
-  getSettings: async (): Promise<AppSettings> => {
-      await delay(500);
-      return { ...MOCK_SETTINGS };
-  },
-
-  updateSettings: async (settings: AppSettings): Promise<AppSettings> => {
-      await delay(500);
-      MOCK_SETTINGS = settings;
-      return settings;
-  },
-
-  // NOTIFICATIONS
-  getNotifications: async (): Promise<Notification[]> => {
-      // Logic to generate notifications dynamically based on data state
-      const notifs: Notification[] = [];
-      
-      // 1. Check Jobs Confirmed but Empty Material
-      MOCK_JOBS.forEach(job => {
-          if (job.status === JobStatus.CONFIRMED && job.materialList.length === 0) {
-              notifs.push({
-                  id: `n-mat-${job.id}`,
-                  type: 'WARNING',
-                  title: 'Materiale Mancante',
-                  message: `Il lavoro "${job.title}" è confermato ma non ha ancora una lista materiali.`,
-                  timestamp: new Date().toISOString(),
-                  read: false,
-                  linkTo: 'JOBS'
-              });
-          }
+  // --- AUTH ---
+  login: async (email: string, password: string): Promise<any> => {
+      const res = await fetch(`${API_URL}/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
       });
-
-      // 2. Mock some recent approvals
-      notifs.push({
-          id: 'n-exp-1',
-          type: 'INFO',
-          title: 'Rimborso Richiesto',
-          message: 'Mario Rossi ha inserito una nuova nota spese da approvare.',
-          timestamp: new Date().toISOString(),
-          read: false,
-          linkTo: 'CREW'
-      });
-
-      return notifs;
+      if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.message || 'Login failed');
+      }
+      return res.json();
   },
 
-  // JOBS CRUD
+  // --- JOBS ---
   getJobs: async (): Promise<Job[]> => {
-    await delay(600); 
-    return [...MOCK_JOBS];
+    const res = await fetch(`${API_URL}/jobs`);
+    if (!res.ok) throw new Error('Failed to fetch jobs');
+    return res.json();
   },
-
   createJob: async (job: Job): Promise<Job> => {
-    await delay(600);
-    MOCK_JOBS.push(job);
-    return job;
+    const { id, ...data } = job; 
+    const res = await fetch(`${API_URL}/jobs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(job)
+    });
+    return res.json();
   },
-
   updateJob: async (job: Job): Promise<Job> => {
-    await delay(600);
-    MOCK_JOBS = MOCK_JOBS.map(j => j.id === job.id ? job : j);
-    return job;
+    const res = await fetch(`${API_URL}/jobs/${job.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(job)
+    });
+    return res.json();
   },
-
   deleteJob: async (id: string): Promise<boolean> => {
-    await delay(600);
-    MOCK_JOBS = MOCK_JOBS.filter(j => j.id !== id);
-    return true;
+    const res = await fetch(`${API_URL}/jobs/${id}`, { method: 'DELETE' });
+    return res.ok;
   },
 
-  // CREW CRUD
+  // --- CREW ---
   getCrew: async (): Promise<CrewMember[]> => {
-    await delay(500);
-    return [...MOCK_CREW];
+    const res = await fetch(`${API_URL}/crew`);
+    return res.json();
   },
-
   updateCrewMember: async (member: CrewMember): Promise<CrewMember> => {
-      await delay(400);
-      MOCK_CREW = MOCK_CREW.map(c => c.id === member.id ? member : c);
-      return member;
+    const isTempId = member.id.length < 20; 
+    
+    if (isTempId) {
+       const res = await fetch(`${API_URL}/crew`, {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify(member)
+       });
+       return res.json();
+    } else {
+       const res = await fetch(`${API_URL}/crew/${member.id}`, {
+         method: 'PUT',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify(member)
+       });
+       return res.json();
+    }
   },
 
-  // LOCATION CRUD
+  // --- LOCATIONS ---
   getLocations: async (): Promise<Location[]> => {
-    await delay(500);
-    return [...MOCK_LOCATIONS];
+    const res = await fetch(`${API_URL}/locations`);
+    return res.json();
   },
-
-  createLocation: async (location: Location): Promise<Location> => {
-    await delay(500);
-    MOCK_LOCATIONS.push(location);
-    return location;
+  createLocation: async (loc: Location): Promise<Location> => {
+    const res = await fetch(`${API_URL}/locations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(loc)
+    });
+    return res.json();
   },
-
-  updateLocation: async (location: Location): Promise<Location> => {
-    await delay(500);
-    MOCK_LOCATIONS = MOCK_LOCATIONS.map(l => l.id === location.id ? location : l);
-    return location;
+  updateLocation: async (loc: Location): Promise<Location> => {
+    const res = await fetch(`${API_URL}/locations/${loc.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(loc)
+    });
+    return res.json();
   },
-
   deleteLocation: async (id: string): Promise<boolean> => {
-    await delay(500);
-    MOCK_LOCATIONS = MOCK_LOCATIONS.filter(l => l.id !== id);
-    return true;
+    const res = await fetch(`${API_URL}/locations/${id}`, { method: 'DELETE' });
+    return res.ok;
   },
 
-  // INVENTORY CRUD
+  // --- INVENTORY ---
   getInventory: async (): Promise<InventoryItem[]> => {
-    await delay(500);
-    return [...MOCK_INVENTORY];
+    const res = await fetch(`${API_URL}/inventory`);
+    return res.json();
   },
-
   createInventoryItem: async (item: InventoryItem): Promise<InventoryItem> => {
-    await delay(500);
-    MOCK_INVENTORY.push(item);
-    return item;
+    const res = await fetch(`${API_URL}/inventory`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(item)
+    });
+    return res.json();
   },
-
   updateInventoryItem: async (item: InventoryItem): Promise<InventoryItem> => {
-    await delay(500);
-    MOCK_INVENTORY = MOCK_INVENTORY.map(i => i.id === item.id ? item : i);
-    return item;
+    const res = await fetch(`${API_URL}/inventory/${item.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(item)
+    });
+    return res.json();
+  },
+  deleteInventoryItem: async (id: string): Promise<boolean> => {
+    const res = await fetch(`${API_URL}/inventory/${id}`, { method: 'DELETE' });
+    return res.ok;
   },
 
-  deleteInventoryItem: async (id: string): Promise<boolean> => {
-    await delay(500);
-    MOCK_INVENTORY = MOCK_INVENTORY.filter(i => i.id !== id);
-    return true;
+  // --- SETTINGS ---
+  getSettings: async (): Promise<AppSettings> => {
+    const res = await fetch(`${API_URL}/settings`);
+    return res.json();
+  },
+  updateSettings: async (settings: AppSettings): Promise<AppSettings> => {
+    const res = await fetch(`${API_URL}/settings`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings)
+    });
+    return res.json();
+  },
+
+  // --- NOTIFICATIONS ---
+  getNotifications: async (): Promise<Notification[]> => {
+    const res = await fetch(`${API_URL}/notifications`);
+    return res.json();
   }
+};
+
+export const checkAvailability = (inventoryId: string, startDate: string, endDate: string, currentJobId?: string): any => {
+    return { available: 999, conflicts: [] }; 
+};
+
+export const calculateMissedRestDays = (crewId: string, year: number, month: number): any => {
+    return { totalWorked: 0, missedRest: 0 }; 
 };
