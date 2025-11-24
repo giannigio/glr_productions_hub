@@ -7,30 +7,51 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/* ===========================
-   MODELLO USER
-   ===========================
-
-   ATTENZIONE: questa è una BOZZA basata sui casi tipici.
-   Deve essere allineata ai campi reali della tabella "User"
-   (controlla con: \d+ "User" in psql).
-*/
+/* ======================================
+   MODEL: USER
+   Tabella reale: "User"
+   ====================================== */
 model User {
-  id        String   @id
-  email     String?  @unique
-  username  String?
-  password  String?
-  role      String?  @default("User")
-  createdAt DateTime @default(now())
+  id            String        @id
+  email         String        @unique
+  password      String
+  role          String
+  createdAt     DateTime      @default(now())
+  crewMemberId  String        @unique
+  crewMember    CrewMember    @relation(fields: [crewMemberId], references: [id])
 
-  // Se in futuro vuoi legare Job / CrewMember a User puoi aggiungere relazioni qui.
+  @@map("User")
 }
 
-/* ===========================
-   JOB
-   (da ai_studio_code.sql)
-   =========================== */
+/* ======================================
+   MODEL: CREW MEMBER
+   ====================================== */
+model CrewMember {
+  id                  String      @id
+  name                String
+  type                String
+  roles               String[]
+  dailyRate           Float
+  overtimeRate        Float?
+  travelIndemnity     Float?
+  email               String?     @unique
+  password            String?
+  accessRole          String?
+  phone               String
+  absences            Json        @default("[]")
+  expenses            Json        @default("[]")
+  tasks               Json        @default("[]")
+  documents           Json        @default("[]")
+  financialDocuments  Json        @default("[]")
 
+  user                User?
+
+  @@map("CrewMember")
+}
+
+/* ======================================
+   MODEL: JOB
+   ====================================== */
 model Job {
   id               String   @id
   title            String
@@ -47,9 +68,9 @@ model Job {
   subcontractorName String?
   outfit           String?
   outfitNoLogo     Boolean  @default(false)
-  phases           Json
-  vehicles         Json
-  materialList     Json
+  phases           Json     @default("[]")
+  vehicles         Json     @default("[]")
+  materialList     Json     @default("[]")
   assignedCrew     String[]
   notes            String
   createdAt        DateTime @default(now())
@@ -58,35 +79,9 @@ model Job {
   @@map("Job")
 }
 
-/* ===========================
-   CREWMEMBER
-   =========================== */
-
-model CrewMember {
-  id                  String   @id
-  name                String
-  type                String
-  roles               String[]
-  dailyRate           Float
-  overtimeRate        Float?
-  travelIndemnity     Float?
-  email               String?  @unique
-  password            String?
-  accessRole          String?
-  phone               String
-  absences            Json
-  expenses            Json
-  tasks               Json
-  documents           Json
-  financialDocuments  Json
-
-  @@map("CrewMember")
-}
-
-/* ===========================
-   LOCATION
-   =========================== */
-
+/* ======================================
+   MODEL: LOCATION
+   ====================================== */
 model Location {
   id                 String   @id
   name               String
@@ -106,10 +101,9 @@ model Location {
   @@map("Location")
 }
 
-/* ===========================
-   INVENTORY ITEM
-   =========================== */
-
+/* ======================================
+   MODEL: INVENTORY ITEM
+   ====================================== */
 model InventoryItem {
   id             String  @id
   name           String
@@ -125,10 +119,9 @@ model InventoryItem {
   @@map("InventoryItem")
 }
 
-/* ===========================
-   APP SETTINGS
-   =========================== */
-
+/* ======================================
+   MODEL: APP SETTINGS
+   ====================================== */
 model AppSettings {
   id       Int   @id @default(autoincrement())
   settings Json
