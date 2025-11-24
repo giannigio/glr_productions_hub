@@ -2,17 +2,16 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Copia pacchetti
+# Installa dipendenze
 COPY package*.json ./
 RUN npm install
 
-# Copia il resto del backend
+# Copia il codice del backend
 COPY . .
 
-# Genera Prisma client
+# Genera il client Prisma in fase di build
 RUN npx prisma generate
 
-# Migrazioni in produzione
-CMD npx prisma migrate deploy && node index.js
-
 EXPOSE 3000
+
+CMD ["node", "index.js"]
