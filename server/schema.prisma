@@ -1,3 +1,6 @@
+// This is your Prisma schema file.
+// It defines the models for your database.
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,55 +10,95 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Model for Authentication
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  password  String
-  role      String   @default("user")
-  createdAt DateTime @default(now())
-
-  // relazioni
-  jobs      Job[]
-  absences  Absence[]
+  id           String      @id @default(uuid())
+  email        String      @unique
+  password     String
+  role         String // ADMIN, MANAGER, TECH
+  createdAt    DateTime    @default(now())
+  crewMemberId String      @unique
+  crewMember   CrewMember  @relation(fields: [crewMemberId], references: [id])
 }
 
+// Model for Crew Data
+model CrewMember {
+  id                 String     @id @default(uuid())
+  name               String
+  type               String // Interno | Esterno
+  roles              String[]
+  phone              String
+  dailyRate          Float
+  overtimeRate       Float?
+  travelIndemnity    Float?
+  absences           Json       @default("[]")
+  expenses           Json       @default("[]")
+  tasks              Json       @default("[]")
+  documents          Json       @default("[]")
+  financialDocuments Json       @default("[]")
+  user               User?
+}
+
+// Model for Jobs
 model Job {
-  id          Int      @id @default(autoincrement())
-  title       String
-  description String?
-  date        DateTime
-  status      String   @default("open")
-
-  userId Int
-  user   User   @relation(fields: [userId], references: [id])
-
-  createdAt DateTime @default(now())
-
-  @@index([status])
-  @@index([userId])
+  id                String    @id @default(uuid())
+  title             String
+  client            String
+  location          String
+  locationId        String?
+  startDate         String
+  endDate           String
+  status            String
+  description       String
+  departments       String[]
+  isAwayJob         Boolean   @default(false)
+  isSubcontracted   Boolean   @default(false)
+  subcontractorName String?
+  outfit            String?
+  outfitNoLogo      Boolean   @default(false)
+  phases            Json      @default("[]")
+  vehicles          Json      @default("[]")
+  materialList      Json      @default("[]")
+  assignedCrew      String[]
+  notes             String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 }
 
-model Material {
-  id        Int      @id @default(autoincrement())
-  name      String
-  category  String?
-  quantity  Int       @default(0)
-  notes     String?
-
-  createdAt DateTime @default(now())
-
-  @@index([category])
-  @@index([name])
+// Model for Locations
+model Location {
+  id                 String  @id @default(uuid())
+  name               String
+  address            String
+  hallSizeMQ         Int     @default(0)
+  mapsLink           String
+  isZtl              Boolean
+  contactName        String
+  contactPhone       String
+  accessHours        String
+  power              Json
+  network            Json
+  logistics          Json
+  equipment          Json
+  generalSurveyNotes String
 }
 
-model Absence {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  date      DateTime
-  reason    String?
+// Model for Inventory
+model InventoryItem {
+  id            String  @id @default(uuid())
+  name          String
+  category      String
+  type          String?
+  quantityOwned Int
+  weightKg      Float?
+  serialNumber  String? @unique
+  status        String?
+  accessories   String?
+  notes         String?
+}
 
-  user      User @relation(fields: [userId], references: [id])
-
-  @@index([userId])
-  @@index([date])
+// Model for Global App Settings
+model AppSettings {
+  id       Int  @id @default(1)
+  settings Json
 }
