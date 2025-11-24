@@ -14,8 +14,9 @@ model User {
   role      String   @default("user")
   createdAt DateTime @default(now())
 
-  // relazione con Jobs
+  // relazioni
   jobs      Job[]
+  absences  Absence[]
 }
 
 model Job {
