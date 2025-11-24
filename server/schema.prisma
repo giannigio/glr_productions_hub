@@ -8,7 +8,7 @@ datasource db {
 }
 
 model User {
-  id           String     @id
+  id           String     @id @default(uuid())
   email        String     @unique
   password     String
   role         String
@@ -20,7 +20,7 @@ model User {
 }
 
 model CrewMember {
-  id                  String   @id
+  id                  String   @id @default(uuid())
   name                String
   type                String
   roles               String[]
@@ -43,7 +43,7 @@ model CrewMember {
 }
 
 model Job {
-  id                String   @id
+  id                String   @id @default(uuid())
   title             String
   client            String
   location          String
@@ -70,7 +70,7 @@ model Job {
 }
 
 model Location {
-  id                 String   @id
+  id                 String   @id @default(uuid())
   name               String
   address            String
   hallSizeMQ         Int      @default(0)
@@ -89,7 +89,7 @@ model Location {
 }
 
 model InventoryItem {
-  id            String  @id
+  id            String  @id @default(uuid())
   name          String
   category      String
   type          String?
