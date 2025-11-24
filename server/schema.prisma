@@ -1,1 +1,60 @@
-��ޭ�h��bz{
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  role      String   @default("user")
+  createdAt DateTime @default(now())
+
+  // relazione con Jobs
+  jobs      Job[]
+}
+
+model Job {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  date        DateTime
+  status      String   @default("open")
+
+  userId Int
+  user   User   @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([status])
+  @@index([userId])
+}
+
+model Material {
+  id        Int      @id @default(autoincrement())
+  name      String
+  category  String?
+  quantity  Int       @default(0)
+  notes     String?
+
+  createdAt DateTime @default(now())
+
+  @@index([category])
+  @@index([name])
+}
+
+model Absence {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  date      DateTime
+  reason    String?
+
+  user      User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([date])
+}
