@@ -1,6 +1,3 @@
-// This is your Prisma schema file.
-// It defines the models for your database.
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,67 +7,91 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Model for Authentication
+/* ===========================
+   MODELLO USER
+   ===========================
+
+   ATTENZIONE: questa è una BOZZA basata sui casi tipici.
+   Deve essere allineata ai campi reali della tabella "User"
+   (controlla con: \d+ "User" in psql).
+*/
 model User {
-  id           String      @id @default(uuid())
-  email        String      @unique
-  password     String
-  role         String // ADMIN, MANAGER, TECH
-  createdAt    DateTime    @default(now())
-  crewMemberId String      @unique
-  crewMember   CrewMember  @relation(fields: [crewMemberId], references: [id])
+  id        String   @id
+  email     String?  @unique
+  username  String?
+  password  String?
+  role      String?  @default("User")
+  createdAt DateTime @default(now())
+
+  // Se in futuro vuoi legare Job / CrewMember a User puoi aggiungere relazioni qui.
 }
 
-// Model for Crew Data
-model CrewMember {
-  id                 String     @id @default(uuid())
-  name               String
-  type               String // Interno | Esterno
-  roles              String[]
-  phone              String
-  dailyRate          Float
-  overtimeRate       Float?
-  travelIndemnity    Float?
-  absences           Json       @default("[]")
-  expenses           Json       @default("[]")
-  tasks              Json       @default("[]")
-  documents          Json       @default("[]")
-  financialDocuments Json       @default("[]")
-  user               User?
-}
+/* ===========================
+   JOB
+   (da ai_studio_code.sql)
+   =========================== */
 
-// Model for Jobs
 model Job {
-  id                String    @id @default(uuid())
-  title             String
-  client            String
-  location          String
-  locationId        String?
-  startDate         String
-  endDate           String
-  status            String
-  description       String
-  departments       String[]
-  isAwayJob         Boolean   @default(false)
-  isSubcontracted   Boolean   @default(false)
+  id               String   @id
+  title            String
+  client           String
+  location         String
+  locationId       String?
+  startDate        String
+  endDate          String
+  status           String
+  description      String
+  departments      String[]
+  isAwayJob        Boolean  @default(false)
+  isSubcontracted  Boolean  @default(false)
   subcontractorName String?
-  outfit            String?
-  outfitNoLogo      Boolean   @default(false)
-  phases            Json      @default("[]")
-  vehicles          Json      @default("[]")
-  materialList      Json      @default("[]")
-  assignedCrew      String[]
-  notes             String
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  outfit           String?
+  outfitNoLogo     Boolean  @default(false)
+  phases           Json
+  vehicles         Json
+  materialList     Json
+  assignedCrew     String[]
+  notes            String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime
+
+  @@map("Job")
 }
 
-// Model for Locations
+/* ===========================
+   CREWMEMBER
+   =========================== */
+
+model CrewMember {
+  id                  String   @id
+  name                String
+  type                String
+  roles               String[]
+  dailyRate           Float
+  overtimeRate        Float?
+  travelIndemnity     Float?
+  email               String?  @unique
+  password            String?
+  accessRole          String?
+  phone               String
+  absences            Json
+  expenses            Json
+  tasks               Json
+  documents           Json
+  financialDocuments  Json
+
+  @@map("CrewMember")
+}
+
+/* ===========================
+   LOCATION
+   =========================== */
+
 model Location {
-  id                 String  @id @default(uuid())
+  id                 String   @id
   name               String
   address            String
-  hallSizeMQ         Int     @default(0)
+  hallSizeMQ         Int      @default(0)
   mapsLink           String
   isZtl              Boolean
   contactName        String
@@ -81,24 +102,36 @@ model Location {
   logistics          Json
   equipment          Json
   generalSurveyNotes String
+
+  @@map("Location")
 }
 
-// Model for Inventory
+/* ===========================
+   INVENTORY ITEM
+   =========================== */
+
 model InventoryItem {
-  id            String  @id @default(uuid())
-  name          String
-  category      String
-  type          String?
-  quantityOwned Int
-  weightKg      Float?
-  serialNumber  String? @unique
-  status        String?
-  accessories   String?
-  notes         String?
+  id             String  @id
+  name           String
+  category       String
+  type           String?
+  quantityOwned  Int
+  weightKg       Float?
+  serialNumber   String? @unique
+  status         String?
+  accessories    String?
+  notes          String?
+
+  @@map("InventoryItem")
 }
 
-// Model for Global App Settings
+/* ===========================
+   APP SETTINGS
+   =========================== */
+
 model AppSettings {
-  id       Int  @id @default(1)
+  id       Int   @id @default(autoincrement())
   settings Json
+
+  @@map("AppSettings")
 }
