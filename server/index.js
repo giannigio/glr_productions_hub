@@ -22,7 +22,7 @@ async function seedDefaultAdmin() {
                 data: {
                     name: 'Amministratore',
                     type: 'Interno',
-                    roles: 'PROJECT_MGR', // Saved as string in DB based on simplified schema or array depending on implementation. Assuming JSON array in schema.
+                    roles: ['PROJECT_MGR'],
                     dailyRate: 0,
                     email: 'admin@glr.it',
                     password: 'password', // IN PRODUCTION: Hash this!

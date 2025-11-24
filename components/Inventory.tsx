@@ -25,7 +25,8 @@ export const Inventory: React.FC<InventoryProps> = ({ inventory, onAddItem, onUp
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Helper to get unique categories from data
-  const availableCategories = ['ALL', ...Array.from(new Set(inventory.map(i => i.category)))].sort();
+  // Explicitly typing as string[] to avoid 'unknown' inference issues during build
+  const availableCategories: string[] = ['ALL', ...Array.from(new Set(inventory.map((i: InventoryItem) => i.category)))].sort();
 
   // Filtering Logic
   const filteredItems = inventory.filter(item => {
@@ -117,7 +118,9 @@ export const Inventory: React.FC<InventoryProps> = ({ inventory, onAddItem, onUp
               if (!name) continue; 
 
               // Merge Correlati and Accessori for search suggestions
-              const accessories = [cols[5], cols[6]].filter(Boolean).map(s => s.trim()).join(', ');
+              // Safe mapping for strings
+              const rawAcc = [cols[5], cols[6]];
+              const accessories = rawAcc.filter((s): s is string => !!s).map(s => s.trim()).join(', ');
               
               const notes = cols[8]?.trim();
               const status = cols[9]?.trim();
@@ -179,7 +182,7 @@ export const Inventory: React.FC<InventoryProps> = ({ inventory, onAddItem, onUp
 
       {/* Dynamic Filter Tabs */}
       <div className="flex gap-2 overflow-x-auto pb-2 shrink-0 scrollbar-thin scrollbar-thumb-glr-700">
-         {availableCategories.map(cat => (
+         {availableCategories.map((cat: string) => (
              <button
                 key={cat}
                 onClick={() => setFilterCategory(cat)}
