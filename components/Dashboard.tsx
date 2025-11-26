@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Job, JobStatus, CrewMember, ApprovalStatus, CrewExpense, WorkflowLog, CrewType } from '../types';
-import { calculateMissedRestDays } from '../services/api';
+import { calculateMissedRestDaysHelper } from '../services/helpers';
 import { ChevronLeft, ChevronRight, Briefcase, AlertCircle, Truck, Users, AlertTriangle, Calendar as CalIcon, Clock, Wallet, Plus, X, FileText, CheckCircle, Download } from 'lucide-react';
 
 interface DashboardProps {
@@ -451,7 +451,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ jobs, crew = [], currentUs
                         </thead>
                         <tbody className="divide-y divide-glr-700/50">
                             {crew.filter(c => c.type === CrewType.INTERNAL).map(c => {
-                                const analysis = calculateMissedRestDays(c.id, year, month);
+                                const analysis = calculateMissedRestDaysHelper(jobs, c.id, year, month);
                                 return (
                                     <tr key={c.id}>
                                         <td className="py-2 text-white font-medium">{c.name}</td>

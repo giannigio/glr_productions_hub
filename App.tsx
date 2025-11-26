@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Dashboard } from './components/Dashboard';
 import { Jobs } from './components/Jobs';
@@ -6,13 +7,14 @@ import { Locations } from './components/Locations';
 import { Inventory } from './components/Inventory'; 
 import { ExpensesDashboard } from './components/ExpensesDashboard';
 import { Settings } from './components/Settings';
+import { StandardLists } from './components/StandardLists';
 import { Login } from './components/Login';
-import { Job, CrewMember, Location, InventoryItem, Notification, SystemRole, AppSettings } from './types';
+import { Job, CrewMember, Location, InventoryItem, Notification, SystemRole, AppSettings, StandardMaterialList } from './types';
 import { api } from './services/api'; 
-import { LayoutDashboard, ClipboardList, Users, Settings as SettingsIcon, LogOut, Menu, X, Loader2, MapPin, Package, Bell, Info, AlertTriangle, CheckCircle, FileText } from 'lucide-react';
+import { LayoutDashboard, ClipboardList, Users, Settings as SettingsIcon, LogOut, Menu, X, Loader2, MapPin, Package, Bell, Info, AlertTriangle, CheckCircle, FileText, Boxes } from 'lucide-react';
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'JOBS' | 'CREW' | 'LOCATIONS' | 'INVENTORY' | 'EXPENSES' | 'SETTINGS'>('DASHBOARD');
+  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'JOBS' | 'CREW' | 'LOCATIONS' | 'INVENTORY' | 'STD_LISTS' | 'EXPENSES' | 'SETTINGS'>('DASHBOARD');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   
@@ -21,36 +23,33 @@ const App: React.FC = () => {
   const [crew, setCrew] = useState<CrewMember[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [standardLists, setStandardLists] = useState<StandardMaterialList[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Authentication State
-  const [currentUser, setCurrentUser] = useState<{ id: string, name: string; role: SystemRole } | null>(null);
+  // Authentication State - DEMO MODE: Default to ADMIN
+  const [currentUser, setCurrentUser] = useState<{ id: string, name: string; role: SystemRole } | null>({
+      id: 'demo-admin-id',
+      name: 'Admin Demo',
+      role: 'ADMIN'
+  });
 
   useEffect(() => {
-    // Check local storage for session
-    const savedUser = localStorage.getItem('glr_user');
-    const savedToken = localStorage.getItem('glr_token');
-    
-    if (savedUser && savedToken) {
-        setCurrentUser(JSON.parse(savedUser));
-    }
-    setIsLoading(false); // Finished checking auth
+    setIsLoading(false);
   }, []);
 
-  // Data Fetching Effect - Only if logged in
   useEffect(() => {
     if (!currentUser) return;
 
     const loadData = async () => {
-      // Small delay to ensure render
       try {
-        const [fetchedJobs, fetchedCrew, fetchedLocations, fetchedInventory, fetchedNotifs, fetchedSettings] = await Promise.all([
+        const [fetchedJobs, fetchedCrew, fetchedLocations, fetchedInventory, fetchedStdLists, fetchedNotifs, fetchedSettings] = await Promise.all([
           api.getJobs(),
           api.getCrew(),
           api.getLocations(),
           api.getInventory(),
+          api.getStandardLists(),
           api.getNotifications(),
           api.getSettings()
         ]);
@@ -58,6 +57,7 @@ const App: React.FC = () => {
         setCrew(fetchedCrew);
         setLocations(fetchedLocations);
         setInventory(fetchedInventory);
+        setStandardLists(fetchedStdLists);
         setNotifications(fetchedNotifs);
         setSettings(fetchedSettings);
       } catch (error) {
@@ -68,11 +68,10 @@ const App: React.FC = () => {
     loadData();
   }, [currentUser]);
 
-  // Logout Handler
   const handleLogout = () => {
-      localStorage.removeItem('glr_user');
-      localStorage.removeItem('glr_token');
-      setCurrentUser(null);
+      if (confirm("Sei in modalità Demo. Vuoi uscire?")) {
+          setCurrentUser(null);
+      }
   };
 
   // CRUD Handlers
@@ -106,7 +105,6 @@ const App: React.FC = () => {
       setLocations(prev => prev.filter(l => l.id !== id));
   };
 
-  // Inventory CRUD
   const handleAddInventory = async (item: InventoryItem) => {
       const savedItem = await api.createInventoryItem(item);
       setInventory(prev => [...prev, savedItem]);
@@ -122,7 +120,21 @@ const App: React.FC = () => {
       setInventory(prev => prev.filter(i => i.id !== id));
   };
 
-  // Crew Update (for workflow state changes)
+  const handleAddStdList = async (list: StandardMaterialList) => {
+      const saved = await api.createStandardList(list);
+      setStandardLists(prev => [...prev, saved]);
+  };
+
+  const handleUpdateStdList = async (list: StandardMaterialList) => {
+      await api.updateStandardList(list);
+      setStandardLists(prev => prev.map(l => l.id === list.id ? list : l));
+  };
+
+  const handleDeleteStdList = async (id: string) => {
+      await api.deleteStandardList(id);
+      setStandardLists(prev => prev.filter(l => l.id !== id));
+  };
+
   const handleUpdateCrew = async (member: CrewMember) => {
       const updated = await api.updateCrewMember(member);
       setCrew(prev => prev.map(c => c.id === updated.id ? updated : c));
@@ -131,6 +143,22 @@ const App: React.FC = () => {
   const handleUpdateSettings = async (newSettings: AppSettings) => {
       const updated = await api.updateSettings(newSettings);
       setSettings(updated);
+  };
+
+  // Permissions Check
+  const canAccess = (section: 'CREW' | 'INVENTORY' | 'LOCATIONS' | 'SETTINGS') => {
+      if (!currentUser || !settings?.permissions) return false;
+      if (currentUser.role === 'ADMIN') return true;
+      
+      const role = currentUser.role as 'MANAGER' | 'TECH';
+      const perms = settings.permissions[role];
+
+      if (section === 'CREW') return perms.canManageCrew;
+      if (section === 'INVENTORY') return perms.canManageInventory;
+      if (section === 'LOCATIONS') return perms.canManageLocations;
+      if (section === 'SETTINGS') return false; // Only Admin
+      
+      return true; // Default visible
   };
 
   const NavItem = ({ id, icon: Icon, label, visible = true }: { id: typeof activeTab, icon: any, label: string, visible?: boolean }) => {
@@ -150,8 +178,6 @@ const App: React.FC = () => {
     );
   };
 
-  // --- RENDER ---
-
   if (isLoading) {
       return <div className="min-h-screen bg-[#0f172a] flex items-center justify-center text-white"><Loader2 className="animate-spin"/></div>
   }
@@ -162,8 +188,6 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-glr-900 text-gray-100 overflow-hidden font-sans">
-      
-      {/* Sidebar - Desktop */}
       <aside className="hidden md:flex flex-col w-64 bg-glr-900 border-r border-glr-800 p-4 shrink-0 z-20">
         <div className="flex items-center gap-3 mb-8 px-2">
           {settings?.logoUrl ? (
@@ -179,168 +203,76 @@ const App: React.FC = () => {
         <nav className="flex-1 space-y-2">
           <NavItem id="DASHBOARD" icon={LayoutDashboard} label="Dashboard" />
           <NavItem id="JOBS" icon={ClipboardList} label="Schede Lavoro" />
-          <NavItem id="INVENTORY" icon={Package} label="Magazzino" />
-          <NavItem id="LOCATIONS" icon={MapPin} label="Locations" />
-          
-          {/* Permissions Logic */}
-          <NavItem id="CREW" icon={Users} label="Crew & Tecnici" visible={currentUser.role !== 'TECH'} />
+          <NavItem id="INVENTORY" icon={Package} label="Magazzino" visible={canAccess('INVENTORY')} />
+          <NavItem id="STD_LISTS" icon={Boxes} label="Kit & Liste" visible={canAccess('INVENTORY')} />
+          <NavItem id="LOCATIONS" icon={MapPin} label="Locations" visible={canAccess('LOCATIONS')} />
+          <NavItem id="CREW" icon={Users} label="Crew & Tecnici" visible={canAccess('CREW')} />
           <NavItem id="EXPENSES" icon={FileText} label="Rimborsi" visible={currentUser.role === 'ADMIN'} />
         </nav>
 
         <div className="border-t border-glr-800 pt-4 mt-auto space-y-2">
-          <button 
-            onClick={() => setActiveTab('SETTINGS')}
-            className={`flex items-center gap-3 w-full p-3 rounded-lg transition-all ${activeTab === 'SETTINGS' ? 'bg-glr-accent text-glr-900 font-bold' : 'text-gray-400 hover:text-white'}`}
-          >
-            <SettingsIcon size={20} />
-            <span>Impostazioni</span>
-          </button>
-          
-          <button 
-            onClick={handleLogout}
-            className="flex items-center gap-3 w-full p-3 rounded-lg text-gray-400 hover:bg-glr-800 hover:text-white transition-colors"
-          >
-            <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-xs font-bold text-white">
-                {currentUser.name.charAt(0)}
-            </div>
-            <div className="flex-1 text-left">
-              <p className="text-sm font-medium text-white">{currentUser.name}</p>
-              <p className="text-xs text-gray-500">{currentUser.role}</p>
-            </div>
+          <NavItem id="SETTINGS" icon={SettingsIcon} label="Impostazioni" visible={currentUser.role === 'ADMIN'} />
+          <button onClick={handleLogout} className="flex items-center gap-3 w-full p-3 rounded-lg text-gray-400 hover:bg-glr-800 hover:text-white transition-colors">
+            <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-xs font-bold text-white">{currentUser.name.charAt(0)}</div>
+            <div className="flex-1 text-left"><p className="text-sm font-medium text-white">{currentUser.name}</p><p className="text-xs text-gray-500">{currentUser.role}</p></div>
             <LogOut size={16} />
           </button>
         </div>
       </aside>
 
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-        
-        {/* Top Header (Desktop & Mobile) */}
         <header className="h-16 bg-glr-900 border-b border-glr-800 flex items-center justify-between px-4 md:px-8 shrink-0 z-30">
-             {/* Mobile Toggle */}
              <div className="md:hidden flex items-center gap-3">
-                <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-white">
-                    {isMobileMenuOpen ? <X /> : <Menu />}
-                </button>
+                <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-white">{isMobileMenuOpen ? <X /> : <Menu />}</button>
                 <span className="font-bold text-lg">GLR HUB</span>
              </div>
-
-             {/* Spacer for desktop alignment */}
              <div className="hidden md:block"></div>
-
-             {/* Right Actions */}
              <div className="flex items-center gap-4 relative">
-                 {/* Notifications */}
-                 <button 
-                    onClick={() => setIsNotifOpen(!isNotifOpen)}
-                    className="relative text-gray-400 hover:text-white transition-colors"
-                 >
+                 <button onClick={() => setIsNotifOpen(!isNotifOpen)} className="relative text-gray-400 hover:text-white transition-colors">
                      <Bell size={22} />
-                     {notifications.some(n => !n.read) && (
-                         <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-glr-900"></span>
-                     )}
+                     {notifications.some(n => !n.read) && (<span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-glr-900"></span>)}
                  </button>
-
-                 {/* Notification Dropdown */}
                  {isNotifOpen && (
                      <div className="absolute top-10 right-0 w-80 bg-glr-800 border border-glr-700 rounded-xl shadow-2xl z-50 overflow-hidden animate-fade-in">
-                         <div className="p-3 border-b border-glr-700 flex justify-between items-center bg-glr-900">
-                             <h4 className="font-bold text-sm text-white">Notifiche</h4>
-                             <button className="text-xs text-glr-accent hover:underline">Segna lette</button>
-                         </div>
+                         <div className="p-3 border-b border-glr-700 flex justify-between items-center bg-glr-900"><h4 className="font-bold text-sm text-white">Notifiche</h4><button className="text-xs text-glr-accent hover:underline">Segna lette</button></div>
                          <div className="max-h-80 overflow-y-auto">
                              {notifications.map(n => (
-                                 <div key={n.id} className={`p-3 border-b border-glr-700/50 hover:bg-glr-700 transition-colors cursor-pointer ${!n.read ? 'bg-glr-700/20' : ''}`}
-                                      onClick={() => {
-                                          if (n.linkTo) setActiveTab(n.linkTo as any);
-                                          setIsNotifOpen(false);
-                                      }}
-                                 >
+                                 <div key={n.id} className={`p-3 border-b border-glr-700/50 hover:bg-glr-700 transition-colors cursor-pointer ${!n.read ? 'bg-glr-700/20' : ''}`} onClick={() => { if (n.linkTo) setActiveTab(n.linkTo as any); setIsNotifOpen(false); }}>
                                      <div className="flex gap-3">
-                                         <div className={`mt-1 ${
-                                             n.type === 'WARNING' ? 'text-amber-500' :
-                                             n.type === 'SUCCESS' ? 'text-green-500' : 
-                                             n.type === 'ERROR' ? 'text-red-500' : 'text-blue-500'
-                                         }`}>
-                                             {n.type === 'WARNING' ? <AlertTriangle size={16}/> : 
-                                              n.type === 'SUCCESS' ? <CheckCircle size={16}/> : <Info size={16}/>}
-                                         </div>
-                                         <div>
-                                             <p className="text-sm font-semibold text-gray-200">{n.title}</p>
-                                             <p className="text-xs text-gray-400 mt-1 leading-relaxed">{n.message}</p>
-                                             <p className="text-[10px] text-gray-500 mt-2 text-right">{new Date(n.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
-                                         </div>
+                                         <div className={`mt-1 ${n.type === 'WARNING' ? 'text-amber-500' : n.type === 'SUCCESS' ? 'text-green-500' : n.type === 'ERROR' ? 'text-red-500' : 'text-blue-500'}`}>{n.type === 'WARNING' ? <AlertTriangle size={16}/> : n.type === 'SUCCESS' ? <CheckCircle size={16}/> : <Info size={16}/>}</div>
+                                         <div><p className="text-sm font-semibold text-gray-200">{n.title}</p><p className="text-xs text-gray-400 mt-1 leading-relaxed">{n.message}</p></div>
                                      </div>
                                  </div>
                              ))}
-                             {notifications.length === 0 && (
-                                 <div className="p-6 text-center text-gray-500 text-sm">Nessuna notifica.</div>
-                             )}
+                             {notifications.length === 0 && (<div className="p-6 text-center text-gray-500 text-sm">Nessuna notifica.</div>)}
                          </div>
                      </div>
                  )}
              </div>
         </header>
 
-        {/* Mobile Menu Overlay */}
         {isMobileMenuOpen && (
             <div className="md:hidden fixed inset-0 top-16 bg-glr-900 z-40 p-4 space-y-2">
             <NavItem id="DASHBOARD" icon={LayoutDashboard} label="Dashboard" />
             <NavItem id="JOBS" icon={ClipboardList} label="Schede Lavoro" />
-            <NavItem id="INVENTORY" icon={Package} label="Magazzino" />
-            <NavItem id="LOCATIONS" icon={MapPin} label="Locations" />
-            {currentUser.role !== 'TECH' && <NavItem id="CREW" icon={Users} label="Crew & Tecnici" />}
-            <NavItem id="SETTINGS" icon={SettingsIcon} label="Impostazioni" />
-            <button onClick={handleLogout} className="flex items-center gap-3 w-full p-3 text-gray-400 bg-gray-800 rounded-lg mt-4">
-                <LogOut size={20}/> Logout
-            </button>
+            <NavItem id="INVENTORY" icon={Package} label="Magazzino" visible={canAccess('INVENTORY')} />
+            <NavItem id="STD_LISTS" icon={Boxes} label="Kit & Liste" visible={canAccess('INVENTORY')} />
+            <NavItem id="LOCATIONS" icon={MapPin} label="Locations" visible={canAccess('LOCATIONS')} />
+            <NavItem id="CREW" icon={Users} label="Crew & Tecnici" visible={canAccess('CREW')} />
+            <NavItem id="SETTINGS" icon={SettingsIcon} label="Impostazioni" visible={currentUser.role === 'ADMIN'} />
             </div>
         )}
 
-        {/* Main Viewport */}
         <main className="flex-1 overflow-auto p-4 md:p-8 bg-[#0b1120]">
             <div className="max-w-7xl mx-auto h-full">
-            {activeTab === 'DASHBOARD' && (
-                <Dashboard 
-                    jobs={jobs} 
-                    crew={crew} 
-                    currentUser={currentUser}
-                    onUpdateCrew={handleUpdateCrew}
-                />
-            )}
-            {activeTab === 'JOBS' && (
-                <Jobs 
-                jobs={jobs} 
-                crew={crew}
-                locations={locations}
-                inventory={inventory}
-                onAddJob={handleAddJob} 
-                onUpdateJob={handleUpdateJob} 
-                onDeleteJob={handleDeleteJob}
-                currentUser={currentUser}
-                settings={settings} 
-                />
-            )}
-            {activeTab === 'INVENTORY' && (
-                <Inventory 
-                    inventory={inventory}
-                    onAddItem={handleAddInventory}
-                    onUpdateItem={handleUpdateInventory}
-                    onDeleteItem={handleDeleteInventory}
-                />
-            )}
-            {activeTab === 'LOCATIONS' && (
-                <Locations 
-                    locations={locations}
-                    onAddLocation={handleAddLocation}
-                    onUpdateLocation={handleUpdateLocation}
-                    onDeleteLocation={handleDeleteLocation}
-                    currentUser={currentUser}
-                />
-            )}
-            {activeTab === 'CREW' && currentUser.role !== 'TECH' && <Crew crew={crew} onUpdateCrew={handleUpdateCrew} jobs={jobs} settings={settings} />}
+            {activeTab === 'DASHBOARD' && <Dashboard jobs={jobs} crew={crew} currentUser={currentUser} onUpdateCrew={handleUpdateCrew} />}
+            {activeTab === 'JOBS' && <Jobs jobs={jobs} crew={crew} locations={locations} inventory={inventory} standardLists={standardLists} onAddJob={handleAddJob} onUpdateJob={handleUpdateJob} onDeleteJob={handleDeleteJob} currentUser={currentUser} settings={settings} />}
+            {activeTab === 'INVENTORY' && canAccess('INVENTORY') && <Inventory inventory={inventory} onAddItem={handleAddInventory} onUpdateItem={handleUpdateInventory} onDeleteItem={handleDeleteInventory} />}
+            {activeTab === 'STD_LISTS' && canAccess('INVENTORY') && <StandardLists lists={standardLists} inventory={inventory} onAddList={handleAddStdList} onUpdateList={handleUpdateStdList} onDeleteList={handleDeleteStdList} />}
+            {activeTab === 'LOCATIONS' && canAccess('LOCATIONS') && <Locations locations={locations} onAddLocation={handleAddLocation} onUpdateLocation={handleUpdateLocation} onDeleteLocation={handleDeleteLocation} currentUser={currentUser} />}
+            {activeTab === 'CREW' && canAccess('CREW') && <Crew crew={crew} onUpdateCrew={handleUpdateCrew} jobs={jobs} settings={settings} />}
             {activeTab === 'EXPENSES' && currentUser.role === 'ADMIN' && <ExpensesDashboard crew={crew} jobs={jobs} />}
-            {activeTab === 'SETTINGS' && settings && <Settings settings={settings} onUpdateSettings={handleUpdateSettings} />}
+            {activeTab === 'SETTINGS' && settings && currentUser.role === 'ADMIN' && <Settings settings={settings} onUpdateSettings={handleUpdateSettings} />}
             </div>
         </main>
       </div>

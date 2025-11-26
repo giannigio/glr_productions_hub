@@ -48,50 +48,59 @@ export interface Notification {
   message: string;
   timestamp: string;
   read: boolean;
-  linkTo?: string; // Optional link to a specific section
+  linkTo?: string; 
 }
 
 export interface WorkflowLog {
   id: string;
   date: string;
-  user: string; // 'Admin', 'Manager', or Crew Name
-  action: string; // 'Created', 'Approved', 'Commented'
+  user: string;
+  action: string;
   note?: string;
 }
 
 export interface InventoryItem {
   id: string;
-  name: string; // From CSV 'Attrezzatura'
-  category: string; // Flexible string to match CSV 'Categoria'
-  type?: string; // From CSV 'Tipologia'
-  quantityOwned: number; // From CSV 'Quantità'
-  weightKg?: number;
+  // Mapped from CSV
+  category: string; // Categoria
+  type?: string; // Tipologia
+  quantityOwned: number; // Quantità
+  name: string; // Attrezzatura
   
-  // New CSV fields
-  serialNumber?: string; // From CSV 'Seriale'
-  status?: string; // From CSV 'Stato'
-  accessories?: string; // From CSV 'Accessori/Kit' or 'Correlati'
+  related?: string; // Correlati
+  accessories?: string; // Accessori/Kit
+  correlationType?: string; // Tipo Correlazione
   
-  notes?: string;
+  notes?: string; // Note
+  status?: string; // Stato
+  serialNumber?: string; // Seriale
+  
+  weightKg?: number; // Optional internal
 }
 
 export interface MaterialItem {
   id: string;
-  inventoryId?: string; // Link to inventory if internal
+  inventoryId?: string;
   category: string;
-  type?: string; // Sub-category (Tipologia) from Inventory
+  type?: string;
   name: string;
   quantity: number;
-  // New fields
   isExternal: boolean;
-  cost?: number; // Costo per noleggio esterno
-  supplier?: string; // For rentals
-  notes?: string; // Technical notes
+  cost?: number;
+  supplier?: string;
+  notes?: string;
+}
+
+export interface StandardMaterialList {
+    id: string;
+    name: string;
+    labels: string[]; // Specific tags: Audio, Video, Luci
+    items: MaterialItem[];
 }
 
 export interface CrewExpense {
   id: string;
-  jobId?: string; // Linked Job
+  jobId?: string;
   jobTitle?: string;
   date: string;
   amount: number;
@@ -99,7 +108,7 @@ export interface CrewExpense {
   category: 'Viaggio' | 'Pasto' | 'Alloggio' | 'Materiale' | 'Altro';
   status: ApprovalStatus;
   workflowLog: WorkflowLog[];
-  attachmentUrl?: string; // Mock url
+  attachmentUrl?: string;
 }
 
 export interface CrewAbsence {
@@ -113,7 +122,7 @@ export interface CrewAbsence {
 
 export interface CrewTask {
     id: string;
-    date: string; // ISO Date YYYY-MM-DD
+    date: string;
     description: string;
     assignedBy: string;
 }
@@ -122,16 +131,16 @@ export interface CrewDocument {
     id: string;
     name: string;
     type: 'Unilav' | 'Certificazione' | 'Visita Medica' | 'Altro';
-    expiryDate?: string; // ISO Date
+    expiryDate?: string;
     uploadDate: string;
-    fileUrl?: string; // Mock URL
+    fileUrl?: string;
 }
 
 export interface FinancialDocument {
     id: string;
     name: string;
     type: 'Busta Paga' | 'CU';
-    month?: string; // '1' to '12'
+    month?: string;
     year?: number;
     uploadDate?: string;
     fileUrl?: string;
@@ -142,38 +151,35 @@ export interface CrewMember {
   name: string;
   type: CrewType;
   roles: CrewRole[];
-  
-  // Financials
   dailyRate: number;
-  overtimeRate?: number; // Costo orario extra
-  travelIndemnity?: number; // Diaria
-  
-  // Auth (Internal only)
+  overtimeRate?: number;
+  travelIndemnity?: number;
   email?: string;
   password?: string;
   accessRole?: SystemRole;
-
   phone: string;
-  
   absences: CrewAbsence[];
   expenses: CrewExpense[];
-  tasks?: CrewTask[]; // Extra tasks outside of jobs
+  tasks?: CrewTask[];
   documents?: CrewDocument[];
   financialDocuments?: FinancialDocument[];
 }
 
 export interface LocationPower {
-  type: 'CIVILE' | 'INDUSTRIALE';
-  industrialSockets: string[]; // '16A', '32A', '63A', '128A'
-  hasPerimeterSockets: boolean;
+  hasCivil: boolean;
+  hasIndustrial: boolean;
+  industrialSockets: string[];
   requiresGenerator: boolean;
-  distanceFromPanel: number; // in meters
+  distanceFromPanel: number;
   notes: string;
 }
 
 export interface LocationNetwork {
+  isUnavailable: boolean;
   hasWired: boolean;
   hasWifi: boolean;
+  hasWallLan: boolean;
+  wallLanDistance: number;
   addressing: 'DHCP' | 'STATIC';
   staticDetails: string;
   firewallProxyNotes: string;
@@ -184,18 +190,18 @@ export interface LocationLogistics {
   hasParking: boolean;
   hasLift: boolean;
   stairsDetails: string;
-  hasEmptyStorage: boolean; // Stipaggio vuoti
+  hasEmptyStorage: boolean;
   emptyStorageNotes: string;
 }
 
 export interface LocationAudioDetails {
   present: boolean;
-  hasPA: boolean; // Impianto
-  paNotes: string; // Note specifiche Impianto
-  hasMics: boolean; // Microfonia
-  micsNotes: string; // Note specifiche Microfonia
-  hasMixerOuts: boolean; // Uscite Mixer
-  mixerNotes: string; // Note specifiche Mixer
+  hasPA: boolean;
+  paNotes: string;
+  hasMics: boolean;
+  micsNotes: string;
+  hasMixerOuts: boolean;
+  mixerNotes: string;
 }
 
 export interface LocationVideoDetails {
@@ -204,41 +210,42 @@ export interface LocationVideoDetails {
   hasProjector: boolean;
   hasLedwall: boolean;
   hasMonitorGobo: boolean;
-  signals: string[]; // 'HDMI', 'VGA', 'SDI'
+  signals: string[];
   notes: string;
 }
 
 export interface LocationEquipment {
   audio: LocationAudioDetails;
   video: LocationVideoDetails;
-  hasLights: boolean; // Keep lights simple for now or expand later
+  hasLights: boolean; 
   lightsNotes: string;
+  hasPerimeterSockets: boolean;
 }
 
 export interface Location {
   id: string;
   name: string;
   address: string;
-  hallSizeMQ: number; // MQ Sala
+  hallSizeMQ: number;
   mapsLink: string;
   isZtl: boolean;
   contactName: string;
   contactPhone: string;
-  accessHours: string; // Orari e pause
+  accessHours: string;
   power: LocationPower;
   network: LocationNetwork;
   logistics: LocationLogistics;
   equipment: LocationEquipment;
-  generalSurveyNotes: string; // Note Generali Sopralluogo
+  generalSurveyNotes: string;
 }
 
 export interface JobPhase {
   id: string;
-  name: string; // Free text name instead of enum
-  start: string; // ISO DateTime
-  end: string; // ISO DateTime
-  callTimeWarehouse?: string; // ISO DateTime
-  callTimeSite?: string; // ISO DateTime
+  name: string;
+  start: string;
+  end: string;
+  callTimeWarehouse?: string;
+  callTimeSite?: string;
 }
 
 export interface JobVehicle {
@@ -247,58 +254,57 @@ export interface JobVehicle {
   quantity: number;
   isRental: boolean;
   rentalCompany?: string;
-  pickupDate?: string; // ISO String
+  pickupDate?: string;
   returnDate?: string;
-  cost?: number; // Costo noleggio
+  cost?: number;
 }
 
 export interface Job {
   id: string;
   title: string;
   client: string;
-  location: string; // Stores the name or address
-  locationId?: string; // Links to a saved Location object
-  startDate: string; // ISO Date YYYY-MM-DD
-  endDate: string;   // ISO Date YYYY-MM-DD
+  location: string;
+  locationId?: string;
+  startDate: string;
+  endDate: string;
   status: JobStatus;
-  
-  // New Fields
-  departments: string[]; // ['Audio', 'Video', 'Luci']
-  isAwayJob: boolean; // Trasferta
-  
-  // Subcontracting
+  departments: string[];
+  isAwayJob: boolean;
   isSubcontracted: boolean;
   subcontractorName?: string;
-
-  // Outfit
   outfit?: OutfitType;
   outfitNoLogo: boolean;
-
   phases: JobPhase[];
   vehicles: JobVehicle[];
-
   description: string;
   materialList: MaterialItem[];
-  assignedCrew: string[]; // CrewMember IDs
+  assignedCrew: string[];
   notes: string;
 }
 
+export interface RolePermissions {
+    canViewBudget: boolean;
+    canManageCrew: boolean;
+    canManageLocations: boolean;
+    canManageInventory: boolean;
+    canDeleteJobs: boolean;
+}
+
 export interface AppSettings {
-    // Company Info
     companyName: string;
     pIva: string;
     address: string;
     bankName: string;
     iban: string;
     logoUrl?: string;
-
-    // Economic Parameters
-    defaultDailyIndemnity: number; // Diaria standard
-    kmCost: number; // Costo al km
-    defaultVatRate: number; // IVA 22%
-
-    // Integrations (Google Calendar)
+    defaultDailyIndemnity: number;
+    kmCost: number;
+    defaultVatRate: number;
     googleCalendarClientId: string;
-    googleCalendarClientSecret: string; // Should be stored securely in backend in real app
-    googleCalendarId: string; // Primary Calendar ID
+    googleCalendarClientSecret: string;
+    googleCalendarId: string;
+    permissions: {
+        MANAGER: RolePermissions;
+        TECH: RolePermissions;
+    }
 }
