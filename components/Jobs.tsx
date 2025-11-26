@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { Job, JobStatus, MaterialItem, CrewMember, Location, InventoryItem, JobPhase, JobVehicle, VehicleType, OutfitType, StandardMaterialList, AppSettings, ApprovalStatus } from '../types';
 import { generateEquipmentList } from '../services/geminiService';
 import { checkAvailabilityHelper } from '../services/helpers';
-import { Plus, Calendar, MapPin, Trash2, Edit3, Wand2, UserPlus, Package, Check, Plane, Clock, X, Truck, AlertTriangle, StickyNote, Building2, Shirt, AlertOctagon, Info, ClipboardList, Speaker, Monitor, Zap, Box, Cable, ChevronRight, Sparkles, Search, Radio, ArrowRightCircle, Lightbulb, Square, CheckSquare, Printer, ShoppingCart, Minus, Filter, ClipboardCheck, Copy, FileInput, FilePlus, LayoutGrid, CalendarRange, Phone, Ruler, Network, Columns, Archive, FolderOpen, Folder, ArrowDownCircle, ArrowLeft, ArrowRight, List, Briefcase, Wifi, Power } from 'lucide-react';
+import { Plus, Calendar, MapPin, Trash2, Edit3, Wand2, UserPlus, Package, Check, Plane, Clock, X, Truck, AlertTriangle, StickyNote, Building2, Shirt, AlertOctagon, Info, ClipboardList, Speaker, Monitor, Zap, Box, Cable, ChevronRight, Sparkles, Search, Radio, ArrowRightCircle, Lightbulb, Square, CheckSquare, Printer, ShoppingCart, Minus, Filter, ClipboardCheck, Copy, FileInput, FilePlus, LayoutGrid, CalendarRange, Phone, Ruler, Network, Columns, Archive, FolderOpen, Folder, ArrowDownCircle, ArrowLeft, ArrowRight, List, Briefcase, Wifi, Power, Mail, User, Briefcase as BriefcaseIcon } from 'lucide-react';
 
 interface JobsProps {
   jobs: Job[];
@@ -75,8 +75,9 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
   const handleNewJob = () => {
     const newJob: Job = {
       id: Date.now().toString(),
-      title: '', client: '', location: '', startDate: new Date().toISOString().split('T')[0], endDate: new Date().toISOString().split('T')[0],
+      title: '', client: '', internalClient: '', location: '', startDate: new Date().toISOString().split('T')[0], endDate: new Date().toISOString().split('T')[0],
       status: JobStatus.DRAFT, description: '', departments: [], isAwayJob: false, isSubcontracted: false, outfitNoLogo: false,
+      contactName: '', contactPhone: '', contactEmail: '',
       phases: [], vehicles: [], materialList: [], assignedCrew: [], notes: ''
     };
     setActiveJob(newJob); setIsEditing(true); setActiveTab('DETAILS');
@@ -410,43 +411,113 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
 
         <div className="overflow-y-auto flex-1 pr-2">
             {activeTab === 'DETAILS' && (
-                <div className="space-y-4 max-w-3xl">
+                <div className="space-y-4 max-w-4xl">
+                    {/* MAIN INFO */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="col-span-2">
-                            <label className="block text-sm text-gray-400 mb-1">Titolo Evento</label>
-                            <input disabled={!canEdit} type="text" value={activeJob.title} onChange={e => setActiveJob({...activeJob, title: e.target.value})} className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white" />
+                            <label className="block text-xs text-gray-400 mb-1 uppercase font-bold">Titolo Evento</label>
+                            <input disabled={!canEdit} type="text" value={activeJob.title} onChange={e => setActiveJob({...activeJob, title: e.target.value})} className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white font-bold text-lg" />
                         </div>
                         <div>
-                            <label className="block text-sm text-gray-400 mb-1">Cliente</label>
-                            <input disabled={!canEdit} type="text" value={activeJob.client} onChange={e => setActiveJob({...activeJob, client: e.target.value})} className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white" />
+                            <label className="block text-xs text-gray-400 mb-1 uppercase">Committente</label>
+                            <input disabled={!canEdit} type="text" value={activeJob.client} onChange={e => setActiveJob({...activeJob, client: e.target.value})} className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white" placeholder="Azienda / Cliente Principale" />
                         </div>
                         <div>
-                            <label className="block text-sm text-gray-400 mb-1">Stato</label>
+                            <label className="block text-xs text-gray-400 mb-1 uppercase">Cliente Interno</label>
+                            <input disabled={!canEdit} type="text" value={activeJob.internalClient || ''} onChange={e => setActiveJob({...activeJob, internalClient: e.target.value})} className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white" placeholder="Rif. Interno / Agenzia" />
+                        </div>
+                    </div>
+
+                    {/* CONTACT PERSON SECTION */}
+                    <div className="bg-glr-900/30 p-4 rounded border border-glr-700/50">
+                        <h4 className="text-xs font-bold text-glr-accent uppercase mb-3 flex items-center gap-2"><User size={14}/> Referente in loco</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label className="block text-[10px] text-gray-500 mb-1 uppercase">Nome & Cognome</label>
+                                <input disabled={!canEdit} type="text" value={activeJob.contactName || ''} onChange={e => setActiveJob({...activeJob, contactName: e.target.value})} className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white text-sm" />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] text-gray-500 mb-1 uppercase">Telefono</label>
+                                <div className="flex items-center gap-2">
+                                    <Phone size={14} className="text-gray-600"/>
+                                    <input disabled={!canEdit} type="text" value={activeJob.contactPhone || ''} onChange={e => setActiveJob({...activeJob, contactPhone: e.target.value})} className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white text-sm" />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] text-gray-500 mb-1 uppercase">Email</label>
+                                <div className="flex items-center gap-2">
+                                    <Mail size={14} className="text-gray-600"/>
+                                    <input disabled={!canEdit} type="text" value={activeJob.contactEmail || ''} onChange={e => setActiveJob({...activeJob, contactEmail: e.target.value})} className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white text-sm" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* DATES & STATUS */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label className="block text-xs text-gray-400 mb-1 uppercase">Stato Lavoro</label>
                             <select disabled={!canEdit} value={activeJob.status} onChange={e => setActiveJob({...activeJob, status: e.target.value as JobStatus})} className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white">
                                 {Object.values(JobStatus).map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
                         </div>
-                        <div className="col-span-2">
-                            <label className="block text-sm text-gray-400 mb-1">Location</label>
-                            <div className="flex gap-2">
-                                <select disabled={!canEdit} value={activeJob.locationId || "custom"} onChange={handleLocationChange} className="w-1/3 bg-glr-900 border border-glr-700 rounded p-2 text-white text-sm">
-                                    <option value="custom">Manuale...</option>{locations.map(l => (<option key={l.id} value={l.id}>{l.name}</option>))}
-                                </select>
-                                <input disabled={!canEdit} type="text" value={activeJob.location} onChange={e => setActiveJob({...activeJob, location: e.target.value, locationId: undefined})} placeholder="Indirizzo" className="w-2/3 bg-glr-900 border border-glr-700 rounded p-2 text-white" />
-                            </div>
-                        </div>
                         <div>
-                             <label className="block text-sm text-gray-400 mb-1">Inizio Evento</label>
+                             <label className="block text-xs text-gray-400 mb-1 uppercase">Inizio Evento</label>
                              <input disabled={!canEdit} type="date" value={activeJob.startDate} onChange={e => setActiveJob({...activeJob, startDate: e.target.value})} className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white" />
                         </div>
                         <div>
-                             <label className="block text-sm text-gray-400 mb-1">Fine Evento</label>
+                             <label className="block text-xs text-gray-400 mb-1 uppercase">Fine Evento</label>
                              <input disabled={!canEdit} type="date" value={activeJob.endDate} onChange={e => setActiveJob({...activeJob, endDate: e.target.value})} className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white" />
                         </div>
-                         <div className="col-span-2">
-                             <label className="block text-sm text-gray-400 mb-1">Descrizione / Note</label>
-                             <textarea disabled={!canEdit} value={activeJob.description} onChange={e => setActiveJob({...activeJob, description: e.target.value})} className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white h-24 text-sm" />
+                    </div>
+
+                    {/* LOCATION */}
+                    <div>
+                        <label className="block text-xs text-gray-400 mb-1 uppercase">Location</label>
+                        <div className="flex gap-2">
+                            <select disabled={!canEdit} value={activeJob.locationId || "custom"} onChange={handleLocationChange} className="w-1/3 bg-glr-900 border border-glr-700 rounded p-2 text-white text-sm">
+                                <option value="custom">Manuale...</option>{locations.map(l => (<option key={l.id} value={l.id}>{l.name}</option>))}
+                            </select>
+                            <input disabled={!canEdit} type="text" value={activeJob.location} onChange={e => setActiveJob({...activeJob, location: e.target.value, locationId: undefined})} placeholder="Indirizzo" className="w-2/3 bg-glr-900 border border-glr-700 rounded p-2 text-white" />
                         </div>
+                    </div>
+
+                    {/* EXTRA DETAILS GRID (Subcontracting & Outfit) */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Subcontracting */}
+                        <div className="bg-glr-900/30 p-3 rounded border border-glr-700/50 flex flex-col gap-2">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input disabled={!canEdit} type="checkbox" checked={activeJob.isSubcontracted} onChange={e => setActiveJob({...activeJob, isSubcontracted: e.target.checked})} className="rounded bg-glr-800 border-glr-600 text-glr-accent"/>
+                                <span className="text-sm text-white font-bold flex items-center gap-2"><BriefcaseIcon size={14}/> Lavoro in Subappalto</span>
+                            </label>
+                            {activeJob.isSubcontracted && (
+                                <input disabled={!canEdit} type="text" placeholder="Nome Azienda Subappaltatrice" value={activeJob.subcontractorName || ''} onChange={e => setActiveJob({...activeJob, subcontractorName: e.target.value})} className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white text-sm mt-1" />
+                            )}
+                        </div>
+
+                        {/* Outfit */}
+                        <div className="bg-glr-900/30 p-3 rounded border border-glr-700/50">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs font-bold text-gray-400 uppercase flex items-center gap-2"><Shirt size={14}/> Outfit Richiesto</span>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input disabled={!canEdit} type="checkbox" checked={activeJob.outfitNoLogo} onChange={e => setActiveJob({...activeJob, outfitNoLogo: e.target.checked})} className="rounded bg-glr-800 border-glr-600 text-red-500"/>
+                                    <span className="text-[10px] font-bold text-red-300 border border-red-900/50 bg-red-900/20 px-1.5 py-0.5 rounded">NO LOGO</span>
+                                </label>
+                            </div>
+                            <select disabled={!canEdit} value={activeJob.outfit || ''} onChange={e => setActiveJob({...activeJob, outfit: e.target.value as OutfitType})} className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white text-sm">
+                                <option value="">-- Seleziona --</option>
+                                <option value="Polo">Polo</option>
+                                <option value="Camicia">Camicia</option>
+                                <option value="Felpa">Felpa</option>
+                                <option value="Abito">Abito Scuro</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* NOTES */}
+                    <div>
+                         <label className="block text-xs text-gray-400 mb-1 uppercase">Descrizione / Note Interne</label>
+                         <textarea disabled={!canEdit} value={activeJob.description} onChange={e => setActiveJob({...activeJob, description: e.target.value})} className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white h-24 text-sm" />
                     </div>
                 </div>
             )}

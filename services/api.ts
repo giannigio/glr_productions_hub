@@ -1,4 +1,5 @@
 
+
 import { Job, CrewMember, Location, InventoryItem, AppSettings, Notification, JobStatus, CrewType, CrewRole, ApprovalStatus, VehicleType, StandardMaterialList } from '../types';
 
 // --- MOCK DATA FOR DEMO MODE ---
@@ -75,6 +76,7 @@ let MOCK_JOBS: Job[] = [
         startDate: new Date().toISOString().split('T')[0], endDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
         status: JobStatus.CONFIRMED, description: 'Convention annuale con streaming', departments: ['Audio', 'Video'],
         isAwayJob: false, isSubcontracted: false, outfitNoLogo: false,
+        internalClient: 'Agenzia Eventi XY', contactName: 'Sig. Brambilla', contactPhone: '3334445555', outfit: 'Polo',
         phases: [
             { id: 'p1', name: 'Allestimento', start: new Date().toISOString(), end: new Date(Date.now() + 14400000).toISOString(), callTimeWarehouse: new Date().toISOString(), callTimeSite: new Date(Date.now() + 3600000).toISOString() }
         ],

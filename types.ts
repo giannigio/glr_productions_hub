@@ -1,4 +1,5 @@
 
+
 // Enums for Statuses
 export enum JobStatus {
   DRAFT = 'Bozza',
@@ -37,7 +38,7 @@ export enum ApprovalStatus {
   COMPLETED = 'Completato / Pagato'
 }
 
-export type OutfitType = 'Polo' | 'Camicia' | 'Abito';
+export type OutfitType = 'Polo' | 'Camicia' | 'Abito' | 'Felpa';
 export type SystemRole = 'ADMIN' | 'MANAGER' | 'TECH';
 
 // Data Models
@@ -259,6 +260,7 @@ export interface Job {
   id: string;
   title: string;
   client: string;
+  internalClient?: string;
   location: string;
   locationId?: string;
   startDate: string;
@@ -268,6 +270,9 @@ export interface Job {
   isAwayJob: boolean;
   isSubcontracted: boolean;
   subcontractorName?: string;
+  contactName?: string;
+  contactPhone?: string;
+  contactEmail?: string;
   outfit?: OutfitType;
   outfitNoLogo: boolean;
   phases: JobPhase[];
