@@ -626,15 +626,18 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
                                 </div>
                             </div>
 
-                            {/* QUICK ITEMS SECTION - CRITICAL FIX */}
+                            {/* QUICK ITEMS SECTION */}
                             <div className="bg-glr-900 border border-glr-700 p-4 rounded-xl">
                                 <h4 className="text-white font-semibold mb-3 flex items-center gap-2 text-xs uppercase"><Lightbulb size={14} className="text-glr-accent"/> Potrebbe servire</h4>
                                 <div className="grid grid-cols-2 gap-2">
                                     {QUICK_ITEMS.map((qItem) => {
                                         const isAdded = activeJob.materialList.some(m => m.name === qItem.name);
+                                        // Logic to detect if Router 5G should flash
+                                        const isRouterNeeded = qItem.name === 'Router 5G' && activeLocationData?.network.isUnavailable && !isAdded;
+                                        
                                         return (
                                             <button key={qItem.name} onClick={() => handleQuickItemToggle(qItem)} 
-                                                className={`text-xs p-2 rounded border transition-all flex items-center justify-between ${isAdded ? 'bg-glr-accent text-glr-900 border-glr-accent font-bold' : 'bg-glr-800 text-gray-400 border-glr-700 hover:text-white'}`}>
+                                                className={`text-xs p-2 rounded border transition-all flex items-center justify-between ${isAdded ? 'bg-glr-accent text-glr-900 border-glr-accent font-bold' : 'bg-glr-800 text-gray-400 border-glr-700 hover:text-white'} ${isRouterNeeded ? 'animate-pulse border-red-500 bg-red-900/20 text-red-300 ring-1 ring-red-500' : ''}`}>
                                                 {qItem.name}
                                                 {isAdded && <Check size={12}/>}
                                             </button>
