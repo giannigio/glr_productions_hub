@@ -921,8 +921,11 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
                                 </tbody>
                             </table>
                         </div>
-                        <div className="page-break"></div>
-                        <div className="border-b-2 border-black pb-4 mb-6 pt-8 flex justify-between items-center">
+                        
+                        {/* PAGE BREAK FOR PACKING LIST */}
+                        <div className="page-break w-full h-1 bg-gray-200 my-8 print:h-0 print:my-0 print:bg-transparent"></div>
+
+                        <div className="border-b-2 border-black pb-4 mb-6 pt-8 flex justify-between items-center break-before-page">
                              <div className="flex items-center gap-4">
                                 {settings?.logoUrl && <img src={settings.logoUrl} className="w-12 h-12 object-contain" alt="GLR" />}
                                 <div><h1 className="text-2xl font-bold uppercase tracking-tight text-black">Packing List</h1></div>
