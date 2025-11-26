@@ -59,6 +59,10 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ACTIVE'); // Default to Active jobs
   
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [showArchived, setShowArchived] = useState(false);
+
   // Archive State
   const [expandedYears, setExpandedYears] = useState<Record<string, boolean>>({});
   const [expandedMonths, setExpandedMonths] = useState<Record<string, boolean>>({});
@@ -180,6 +184,19 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
       }
       addItemToList(newItem);
       setNewMatInventoryId(''); setNewMatName(''); setNewMatType(''); setNewMatQty(1); setNewMatNotes('');
+  };
+
+  const handleQuickItemToggle = (qItem: typeof QUICK_ITEMS[0]) => {
+        if (!activeJob) return;
+        const existing = activeJob.materialList.find(m => m.name === qItem.name && !m.inventoryId);
+        if (existing) {
+            setActiveJob({ ...activeJob, materialList: activeJob.materialList.filter(m => m.id !== existing.id) });
+        } else {
+            const newItem: MaterialItem = {
+                id: Date.now().toString(), name: qItem.name, category: qItem.category, type: qItem.type, quantity: 1, isExternal: false, notes: 'Aggiunta rapida'
+            };
+            setActiveJob({ ...activeJob, materialList: [...activeJob.materialList, newItem] });
+        }
   };
 
   const toggleCrewAssignment = (crewId: string) => {
@@ -370,6 +387,7 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
   };
 
   const budget = calculateBudget();
+  const monthNames = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
 
   if (isEditing && activeJob) {
     return (
@@ -566,19 +584,16 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
 
             {activeTab === 'MATERIAL' && (
                 <div className="flex flex-col lg:flex-row gap-6 h-full">
-                    {/* LEFT COL */}
+                    {/* LEFT COLUMN: INPUTS & QUICK ITEMS */}
                     {canEdit && (
                         <div className="lg:w-1/3 flex flex-col gap-4">
+                            {/* Main Adder */}
                             <div className="bg-glr-900 border border-glr-700 p-4 rounded-xl">
                                 <h4 className="text-white font-semibold mb-3 flex items-center gap-2"><Package size={16}/> Aggiungi Materiale</h4>
                                 
                                 <div className="flex gap-2 mb-3">
-                                    <button onClick={() => setIsCatalogOpen(true)} className="flex-1 bg-glr-accent text-glr-900 font-bold py-2 rounded hover:bg-amber-400 flex items-center justify-center gap-2 text-xs">
-                                        <ClipboardCheck size={16}/> Catalogo
-                                    </button>
-                                    <button onClick={() => setIsImportKitModalOpen(true)} className="flex-1 bg-blue-600 text-white font-bold py-2 rounded hover:bg-blue-500 flex items-center justify-center gap-2 text-xs">
-                                        <ArrowDownCircle size={16}/> Importa Kit
-                                    </button>
+                                    <button onClick={() => setIsCatalogOpen(true)} className="flex-1 bg-glr-accent text-glr-900 font-bold py-2 rounded hover:bg-amber-400 flex items-center justify-center gap-2 text-xs"><ClipboardCheck size={16}/> Catalogo</button>
+                                    <button onClick={() => setIsImportKitModalOpen(true)} className="flex-1 bg-blue-600 text-white font-bold py-2 rounded hover:bg-blue-500 flex items-center justify-center gap-2 text-xs"><ArrowDownCircle size={16}/> Importa Kit</button>
                                 </div>
 
                                 <div className="flex gap-2 mb-2">
@@ -590,13 +605,11 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
                                     <>
                                         <div className="flex gap-2 mb-2">
                                             <select value={invCategoryFilter} onChange={e => setInvCategoryFilter(e.target.value)} className="w-1/2 bg-glr-800 border border-glr-600 rounded text-white text-xs p-2"><option value="ALL">Cat: Tutte</option><option>Audio</option><option>Video</option><option>Luci</option><option>Cavi</option><option>Strutture</option></select>
-                                            <select value={invTypeFilter} onChange={e => setInvTypeFilter(e.target.value)} className="w-1/2 bg-glr-800 border border-glr-600 rounded text-white text-xs p-2">
-                                                {availableTypes.map(t => <option key={t} value={t}>{t === 'ALL' ? 'Tipo: Tutti' : t}</option>)}
-                                            </select>
+                                            <select value={invTypeFilter} onChange={e => setInvTypeFilter(e.target.value)} className="w-1/2 bg-glr-800 border border-glr-600 rounded text-white text-xs p-2">{availableTypes.map(t => <option key={t} value={t}>{t === 'ALL' ? 'Tipo: Tutti' : t}</option>)}</select>
                                         </div>
                                         <select value={newMatInventoryId} onChange={e => setNewMatInventoryId(e.target.value)} className="w-full bg-glr-800 border border-glr-600 rounded px-2 py-2 text-white text-xs mb-2 outline-none">
                                             <option value="">Seleziona Articolo...</option>
-                                            {filteredInventory.map(i => (<option key={i.id} value={i.id}>[{i.category}] {i.name}</option>))}
+                                            {filteredInventory.map(i => (<option key={i.id} value={i.id}>[{i.category}] {i.name} (Disp: {i.quantityOwned})</option>))}
                                         </select>
                                     </>
                                 ) : (
@@ -605,16 +618,34 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
                                         <input type="number" placeholder="Costo Noleggio €" value={newMatCost || ''} onChange={e => setNewMatCost(parseFloat(e.target.value))} className="w-full bg-glr-800 border border-glr-600 rounded px-2 py-2 text-white text-sm" />
                                     </div>
                                 )}
+                                
                                 <input type="text" placeholder="Note opzionali..." value={newMatNotes} onChange={e => setNewMatNotes(e.target.value)} className="w-full bg-glr-800 border border-glr-600 rounded px-2 py-2 text-white text-xs mb-2"/>
                                 <div className="flex gap-2">
                                     <input type="number" min="1" value={newMatQty} onChange={e => setNewMatQty(parseInt(e.target.value))} className="w-16 bg-glr-800 border border-glr-600 rounded px-2 py-2 text-white text-sm text-center" />
                                     <button onClick={addManualMaterial} className="flex-1 bg-glr-700 hover:bg-white hover:text-glr-900 text-white px-3 py-1 rounded font-bold transition-colors"><Plus size={18} className="inline mr-1"/> Aggiungi</button>
                                 </div>
                             </div>
+
+                            {/* QUICK ITEMS SECTION - CRITICAL FIX */}
+                            <div className="bg-glr-900 border border-glr-700 p-4 rounded-xl">
+                                <h4 className="text-white font-semibold mb-3 flex items-center gap-2 text-xs uppercase"><Lightbulb size={14} className="text-glr-accent"/> Potrebbe servire</h4>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {QUICK_ITEMS.map((qItem) => {
+                                        const isAdded = activeJob.materialList.some(m => m.name === qItem.name);
+                                        return (
+                                            <button key={qItem.name} onClick={() => handleQuickItemToggle(qItem)} 
+                                                className={`text-xs p-2 rounded border transition-all flex items-center justify-between ${isAdded ? 'bg-glr-accent text-glr-900 border-glr-accent font-bold' : 'bg-glr-800 text-gray-400 border-glr-700 hover:text-white'}`}>
+                                                {qItem.name}
+                                                {isAdded && <Check size={12}/>}
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                            </div>
                         </div>
                     )}
-                    
-                    {/* RIGHT COL: LIST */}
+
+                    {/* RIGHT COLUMN: LIST */}
                     <div className="flex-1 bg-glr-900 rounded-xl border border-glr-700 overflow-hidden flex flex-col">
                         <div className="overflow-y-auto flex-1 p-2">
                         {['Audio', 'Video', 'Luci', 'Strutture', 'Cavi', 'Rete', 'Accessori', 'Altro'].map(cat => {
@@ -868,7 +899,7 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
         {/* --- TIMELINE VIEW --- */}
         {viewMode === 'TIMELINE' && (
             <div className="space-y-6 animate-fade-in">
-                {timelineWeeks.length === 0 && <p className="text-center text-gray-500 py-10">Nessun lavoro trovato.</p>}
+                {timelineWeeks.length === 0 && <p className="text-center text-gray-500 py-10">Nessun lavoro trovato per questo periodo.</p>}
                 {timelineWeeks.map((week, index) => (
                     <div key={index} className="bg-glr-900 border border-glr-700 rounded-xl overflow-hidden">
                         <div className="bg-glr-800 px-4 py-3 border-b border-glr-700 flex items-center justify-between">

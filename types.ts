@@ -61,21 +61,17 @@ export interface WorkflowLog {
 
 export interface InventoryItem {
   id: string;
-  // Mapped from CSV
-  category: string; // Categoria
-  type?: string; // Tipologia
-  quantityOwned: number; // Quantità
-  name: string; // Attrezzatura
-  
-  related?: string; // Correlati
-  accessories?: string; // Accessori/Kit
-  correlationType?: string; // Tipo Correlazione
-  
-  notes?: string; // Note
-  status?: string; // Stato
-  serialNumber?: string; // Seriale
-  
-  weightKg?: number; // Optional internal
+  category: string; 
+  type?: string; 
+  quantityOwned: number; 
+  name: string; 
+  related?: string; 
+  accessories?: string; 
+  correlationType?: string; 
+  notes?: string; 
+  status?: string; 
+  serialNumber?: string; 
+  weightKg?: number; 
 }
 
 export interface MaterialItem {
@@ -94,7 +90,7 @@ export interface MaterialItem {
 export interface StandardMaterialList {
     id: string;
     name: string;
-    labels: string[]; // Specific tags: Audio, Video, Luci
+    labels: string[]; // Audio, Video, Luci
     items: MaterialItem[];
 }
 

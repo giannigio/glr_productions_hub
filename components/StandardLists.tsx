@@ -18,7 +18,6 @@ export const StandardLists: React.FC<StandardListsProps> = ({ lists, inventory, 
     // Editor State
     const [searchTerm, setSearchTerm] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('ALL');
-    const [typeFilter, setTypeFilter] = useState('ALL');
 
     const handleNew = () => {
         setActiveList({ id: '', name: 'Nuovo Kit', labels: [], items: [] });
@@ -39,21 +38,13 @@ export const StandardLists: React.FC<StandardListsProps> = ({ lists, inventory, 
         setActiveList({ ...activeList, labels: updated });
     };
 
-    // Inventory Filters
-    const availableTypes = useMemo(() => {
-        let items = inventory;
-        if (categoryFilter !== 'ALL') items = items.filter(i => i.category === categoryFilter);
-        return ['ALL', ...(Array.from(new Set(items.map(i => i.type).filter(Boolean))) as string[]).sort()];
-    }, [inventory, categoryFilter]);
-
     const filteredInventory = useMemo(() => {
         return inventory.filter(i => {
             const matchSearch = i.name.toLowerCase().includes(searchTerm.toLowerCase());
             const matchCat = categoryFilter === 'ALL' || i.category === categoryFilter;
-            const matchType = typeFilter === 'ALL' || i.type === typeFilter;
-            return matchSearch && matchCat && matchType;
+            return matchSearch && matchCat;
         });
-    }, [inventory, searchTerm, categoryFilter, typeFilter]);
+    }, [inventory, searchTerm, categoryFilter]);
 
     const addItem = (invItem: InventoryItem) => {
         if (!activeList) return;
@@ -127,9 +118,6 @@ export const StandardLists: React.FC<StandardListsProps> = ({ lists, inventory, 
                         <div className="space-y-2">
                             <div className="flex gap-2">
                                 <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="bg-glr-900 border border-glr-600 rounded text-white text-xs px-2 py-2 w-1/3"><option value="ALL">Tutte Categorie</option><option>Audio</option><option>Video</option><option>Luci</option><option>Cavi</option><option>Strutture</option></select>
-                                <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="bg-glr-900 border border-glr-600 rounded text-white text-xs px-2 py-2 w-1/3">
-                                    {availableTypes.map(t => <option key={t} value={t}>{t === 'ALL' ? 'Tutti Tipi' : t}</option>)}
-                                </select>
                             </div>
                             <div className="relative w-full">
                                 <Search size={14} className="absolute left-2 top-2.5 text-gray-400"/>

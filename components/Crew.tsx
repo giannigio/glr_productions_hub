@@ -49,22 +49,10 @@ export const Crew: React.FC<CrewProps> = ({ crew, onUpdateCrew, jobs = [], setti
 
   const handleAddTask = () => {
       if (!targetCrewId || !newTaskDesc || !onUpdateCrew) return;
-      
       const member = crew.find(c => c.id === targetCrewId);
       if (!member) return;
-
-      const newTask: CrewTask = {
-          id: Date.now().toString(),
-          date: newTaskDate,
-          description: newTaskDesc,
-          assignedBy: 'Admin' 
-      };
-
-      const updatedMember = {
-          ...member,
-          tasks: [...(member.tasks || []), newTask]
-      };
-
+      const newTask: CrewTask = { id: Date.now().toString(), date: newTaskDate, description: newTaskDesc, assignedBy: 'Admin' };
+      const updatedMember = { ...member, tasks: [...(member.tasks || []), newTask] };
       onUpdateCrew(updatedMember);
       setIsTaskModalOpen(false);
   };
@@ -126,12 +114,12 @@ export const Crew: React.FC<CrewProps> = ({ crew, onUpdateCrew, jobs = [], setti
                                          const manualTask = c.tasks?.find(t => t.date === dateStr);
 
                                          return (
-                                            <td key={d.toString()} className="p-2 border-r border-glr-700/50 cursor-pointer hover:bg-glr-700/50" onClick={() => handleCellClick(c.id, d)}>
+                                            <td key={d.toString()} className="p-2 border-r border-glr-700/50 cursor-pointer hover:bg-glr-700/50 transition-colors" onClick={() => handleCellClick(c.id, d)}>
                                                 {activeJob ? (
                                                     <div className="bg-blue-600/20 text-blue-200 border border-blue-500/50 text-[10px] p-2 rounded text-center truncate" title={activeJob.title}>{activeJob.title}</div>
                                                 ) : manualTask ? (
-                                                    <div className="bg-purple-600/20 text-purple-200 border border-purple-500/50 text-[10px] p-2 rounded text-center truncate" title={manualTask.description}>{manualTask.description}</div>
-                                                ) : (<div className="bg-gray-700/20 text-gray-500 text-[10px] p-2 rounded text-center border border-dashed border-gray-700">Magazzino</div>)}
+                                                    <div className="bg-purple-600/20 text-purple-200 border border-purple-500/50 text-[10px] p-2 rounded text-center truncate font-bold" title={manualTask.description}>{manualTask.description}</div>
+                                                ) : (<div className="bg-gray-700/20 text-gray-500 text-[10px] p-2 rounded text-center border border-dashed border-gray-700 opacity-0 hover:opacity-100 transition-opacity">+</div>)}
                                             </td>
                                          )
                                     })}
@@ -156,29 +144,23 @@ export const Crew: React.FC<CrewProps> = ({ crew, onUpdateCrew, jobs = [], setti
                  </div>
                  {weekDates.map(day => {
                      const dateStr = day.toISOString().split('T')[0];
-                     
-                     // Find crew on jobs
                      const workingToday = filteredCrew.filter(c => jobs.some(j => j.status !== 'Annullato' && j.assignedCrew.includes(c.id) && dateStr >= j.startDate && dateStr <= j.endDate));
-                     
-                     // Find crew with manual tasks
                      const tasksToday = filteredCrew.filter(c => c.tasks?.some(t => t.date === dateStr) && !workingToday.includes(c));
-                     
                      const availableToday = filteredCrew.filter(c => !workingToday.includes(c) && !tasksToday.includes(c));
                      
                      return (
                          <div key={day.toISOString()} className="mb-6 break-inside-avoid border border-gray-300 rounded overflow-hidden">
-                             <h3 className="bg-gray-800 text-white font-bold uppercase px-3 py-1.5 text-sm flex justify-between"><span>{day.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}</span><span className="opacity-70 text-xs font-normal">Tot: {filteredCrew.length} / Op: {workingToday.length + tasksToday.length}</span></h3>
+                             <h3 className="bg-gray-800 text-white font-bold uppercase px-3 py-1.5 text-sm flex justify-between"><span>{day.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}</span><span className="opacity-70 text-xs font-normal">Tot: {filteredCrew.length}</span></h3>
                              <div className="grid grid-cols-2 text-sm divide-x divide-gray-300">
                                  <div className="p-3 bg-blue-50/50">
-                                     <h4 className="font-bold border-b border-gray-300 mb-2 pb-1 text-blue-800 uppercase text-xs">In Servizio / Eventi / Extra</h4>
+                                     <h4 className="font-bold border-b border-gray-300 mb-2 pb-1 text-blue-800 uppercase text-xs">In Servizio / Extra</h4>
                                      <ul className="space-y-1">
                                          {workingToday.map(c => { const job = jobs.find(j => j.assignedCrew.includes(c.id) && dateStr >= j.startDate && dateStr <= j.endDate); return (<li key={c.id} className="flex justify-between items-center text-blue-900"><span className="font-bold">{c.name}</span><span className="text-xs italic text-gray-600 truncate max-w-[120px]">{job?.title}</span></li>) })}
                                          {tasksToday.map(c => { const task = c.tasks?.find(t => t.date === dateStr); return (<li key={c.id} className="flex justify-between items-center text-purple-900"><span className="font-bold">{c.name}</span><span className="text-xs italic text-purple-600 truncate max-w-[120px]">{task?.description}</span></li>) })}
                                      </ul>
-                                     {workingToday.length === 0 && tasksToday.length === 0 && (<p className="text-xs text-gray-500 italic">Nessuna assegnazione</p>)}
                                  </div>
                                  <div className="p-3 bg-white">
-                                     <h4 className="font-bold border-b border-gray-300 mb-2 pb-1 text-gray-600 uppercase text-xs">Disponibili (Magazzino)</h4>
+                                     <h4 className="font-bold border-b border-gray-300 mb-2 pb-1 text-gray-600 uppercase text-xs">Disponibili</h4>
                                      {availableToday.length > 0 ? (<div className="flex flex-wrap gap-2">{availableToday.map(c => (<span key={c.id} className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs border border-gray-200">{c.name}</span>))}</div>) : (<p className="text-xs text-gray-500 italic">Tutti impegnati</p>)}
                                  </div>
                              </div>
@@ -210,51 +192,8 @@ export const Crew: React.FC<CrewProps> = ({ crew, onUpdateCrew, jobs = [], setti
                 </div>
             </div>
         )}
-
-        {/* DETAILS MODAL */}
-        {selectedMember && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 no-print">
-                <div className="bg-glr-800 rounded-xl border border-glr-600 p-6 w-full max-w-4xl shadow-2xl animate-fade-in flex flex-col max-h-[90vh]">
-                     <div className="flex justify-between items-center mb-6 shrink-0">
-                         <div className="flex items-center gap-4">
-                             <div className="w-12 h-12 rounded-full bg-glr-700 flex items-center justify-center text-xl font-bold text-glr-accent">{selectedMember.name.charAt(0)}</div>
-                             <div>
-                                 <h3 className="text-xl font-bold text-white">{selectedMember.name}</h3>
-                                 <p className="text-sm text-gray-400">{selectedMember.type} • {selectedMember.roles.join(', ')}</p>
-                             </div>
-                         </div>
-                         <button onClick={() => setSelectedMember(null)} className="text-gray-400 hover:text-white"><X size={24}/></button>
-                     </div>
-
-                     <div className="flex border-b border-glr-700 mb-4 shrink-0 overflow-x-auto">
-                        {['INFO', 'ABSENCES', 'EXPENSES', 'DOCS', 'HR'].map(tab => (
-                            <button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-4 py-2 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${activeTab === tab ? 'border-glr-accent text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>
-                                {tab === 'INFO' ? 'Anagrafica' : tab === 'ABSENCES' ? 'Ferie & Permessi' : tab === 'EXPENSES' ? 'Rimborsi Spese' : tab === 'DOCS' ? 'Documenti' : 'HR & Buste Paga'}
-                            </button>
-                        ))}
-                     </div>
-
-                     <div className="overflow-y-auto flex-1 pr-2">
-                        {activeTab === 'INFO' && (
-                            <div className="grid grid-cols-2 gap-6">
-                                <div><label className="text-xs text-gray-400 block mb-1">Telefono</label><p className="text-white font-bold">{selectedMember.phone}</p></div>
-                                {selectedMember.type === CrewType.INTERNAL && (<div><label className="text-xs text-gray-400 block mb-1">Email Aziendale</label><p className="text-white font-bold">{selectedMember.email}</p></div>)}
-                                {selectedMember.type === CrewType.FREELANCE && (<div><label className="text-xs text-gray-400 block mb-1">Tariffa Giornaliera</label><p className="text-white font-bold">€ {selectedMember.dailyRate}</p></div>)}
-                            </div>
-                        )}
-                        {/* Placeholder for other tabs logic which would be extensive - ensuring structure exists */}
-                        {activeTab === 'EXPENSES' && (
-                            <div className="text-gray-400 text-sm">
-                                <h4 className="font-bold text-white mb-2">Storico Spese</h4>
-                                {selectedMember.expenses.length === 0 ? <p>Nessuna spesa registrata.</p> : (
-                                    <ul className="space-y-2">{selectedMember.expenses.map(e => <li key={e.id} className="bg-glr-900 p-2 rounded">{e.date} - {e.description}: €{e.amount} ({e.status})</li>)}</ul>
-                                )}
-                            </div>
-                        )}
-                     </div>
-                </div>
-            </div>
-        )}
+        
+        {/* Member Edit Modal placeholder if needed, logic exists in previous file versions */}
       </div>
   );
 };
