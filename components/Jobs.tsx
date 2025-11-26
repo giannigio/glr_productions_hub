@@ -1,9 +1,7 @@
-
 import React, { useState, useMemo } from 'react';
 import { Job, JobStatus, MaterialItem, CrewMember, Location, InventoryItem, JobPhase, JobVehicle, VehicleType, OutfitType, StandardMaterialList, AppSettings, ApprovalStatus } from '../types';
-import { generateEquipmentList } from '../services/geminiService';
 import { checkAvailabilityHelper } from '../services/helpers';
-import { Plus, Calendar, MapPin, Trash2, Edit3, Wand2, UserPlus, Package, Check, Plane, Clock, X, Truck, AlertTriangle, StickyNote, Building2, Shirt, AlertOctagon, Info, ClipboardList, Speaker, Monitor, Zap, Box, Cable, ChevronRight, Sparkles, Search, Radio, ArrowRightCircle, Lightbulb, Square, CheckSquare, Printer, ShoppingCart, Minus, Filter, ClipboardCheck, Copy, FileInput, FilePlus, LayoutGrid, CalendarRange, Phone, Ruler, Network, Columns, Archive, FolderOpen, Folder, ArrowDownCircle, ArrowLeft, ArrowRight, List, Briefcase, Wifi, Power, Mail, User, Briefcase as BriefcaseIcon } from 'lucide-react';
+import { Plus, Calendar, MapPin, Trash2, Edit3, UserPlus, Package, Check, Clock, X, Truck, AlertTriangle, Info, ClipboardList, Speaker, Monitor, Zap, Box, Cable, ChevronRight, Search, Lightbulb, CheckSquare, Printer, Minus, Filter, ClipboardCheck, Copy, CalendarRange, Phone, Network, Archive, FolderOpen, Folder, ArrowDownCircle, ArrowLeft, ArrowRight, List, Briefcase, Mail, User, BriefcaseIcon, Shirt, FilePlus } from 'lucide-react';
 
 interface JobsProps {
   jobs: Job[];
@@ -57,7 +55,7 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
 
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('ACTIVE'); // Default to Active jobs
+  const [statusFilter, setStatusFilter] = useState<string>('ACTIVE'); 
   
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
@@ -97,14 +95,6 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
       setIsEditing(true);
       setActiveTab('DETAILS');
       setIsTemplateModalOpen(false);
-  };
-
-  const handleDuplicateJob = (jobToDuplicate: Job) => {
-      const newJob: Job = {
-          ...jobToDuplicate, id: Date.now().toString(), title: `${jobToDuplicate.title} (Copia)`, status: JobStatus.DRAFT,
-          startDate: new Date().toISOString().split('T')[0], endDate: new Date().toISOString().split('T')[0], assignedCrew: [], phases: []
-      };
-      onAddJob(newJob);
   };
 
   const handleImportKit = (kit: StandardMaterialList) => {
@@ -308,7 +298,6 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
       
       filteredJobs.forEach(job => {
           const date = new Date(job.startDate);
-          // Get Start of Week (Monday)
           const day = date.getDay() || 7; 
           if (day !== 1) date.setHours(-24 * (day - 1));
           
@@ -324,21 +313,21 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
       return Object.values(weeks).sort((a,b) => a.start.getTime() - b.start.getTime());
   }, [filteredJobs]);
 
-  // --- ARCHIVE TREE ---
   const archiveTree = useMemo(() => {
       const tree: Record<string, Record<string, Job[]>> = {};
-      filteredJobs.forEach(job => {
-          const d = new Date(job.startDate);
+      const months = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
+      
+      jobs.filter(j => j.status === JobStatus.COMPLETED || j.status === JobStatus.CANCELLED).forEach(j => {
+          const d = new Date(j.startDate);
           const y = d.getFullYear().toString();
-          const m = d.toLocaleString('it-IT', { month: 'long' });
-          const M = m.charAt(0).toUpperCase() + m.slice(1);
+          const m = months[d.getMonth()];
           
           if (!tree[y]) tree[y] = {};
-          if (!tree[y][M]) tree[y][M] = [];
-          tree[y][M].push(job);
+          if (!tree[y][m]) tree[y][m] = [];
+          tree[y][m].push(j);
       });
       return tree;
-  }, [filteredJobs]);
+  }, [jobs]);
 
   const activeLocationData = useMemo(() => {
       if (!activeJob || !activeJob.locationId) return null;
@@ -355,24 +344,17 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
       }
   }
 
-  // BUDGET CALCULATIONS
   const calculateBudget = () => {
       if (!activeJob) return { freelance: 0, materials: 0, vehicles: 0, expenses: 0, total: 0 };
       
-      // Freelance Costs
       const days = Math.max(1, Math.ceil((new Date(activeJob.endDate).getTime() - new Date(activeJob.startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1);
       const freelanceCost = activeJob.assignedCrew.reduce((acc, crewId) => {
           const member = crew.find(c => c.id === crewId);
           return acc + (member && member.type === 'Esterno' ? member.dailyRate * days : 0);
       }, 0);
 
-      // Material Costs
       const materialCost = activeJob.materialList.reduce((acc, m) => acc + (m.isExternal ? (m.cost || 0) * m.quantity : 0), 0);
-
-      // Vehicle Costs
       const vehicleCost = activeJob.vehicles.reduce((acc, v) => acc + (v.isRental ? (v.cost || 0) : 0), 0);
-
-      // Expenses (Reimbursements linked to this job)
       const expensesCost = crew.reduce((acc, c) => {
           const jobExpenses = c.expenses?.filter(e => e.jobId === activeJob.id && e.status !== ApprovalStatus.REJECTED) || [];
           return acc + jobExpenses.reduce((sum, e) => sum + e.amount, 0);
@@ -388,7 +370,6 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
   };
 
   const budget = calculateBudget();
-  const monthNames = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
 
   if (isEditing && activeJob) {
     return (
@@ -605,49 +586,105 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
             )}
 
             {activeTab === 'PHASES' && (
-                <div className="space-y-8">
-                     <div>
-                        <div className="flex justify-between items-center mb-2">
-                            <h3 className="text-white font-bold flex items-center gap-2"><Clock size={18}/> Fasi Operative</h3>
-                            {canEdit && <button onClick={addPhase} className="bg-glr-700 hover:bg-glr-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1"><Plus size={16}/> Aggiungi</button>}
+                <div className="space-y-8 animate-fade-in">
+                     {/* PHASES */}
+                     <div className="bg-glr-900/30 p-4 rounded-xl border border-glr-700/50">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-white font-bold flex items-center gap-2 text-lg"><Clock size={20} className="text-glr-accent"/> Fasi Operative</h3>
+                            {canEdit && <button onClick={addPhase} className="bg-glr-700 hover:bg-white hover:text-glr-900 text-white px-4 py-2 rounded font-bold text-sm flex items-center gap-2 transition-colors"><Plus size={18}/> Aggiungi Fase</button>}
                         </div>
-                        <div className="space-y-2">
+                        
+                        {/* Phases Header */}
+                        <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-xs uppercase font-bold text-gray-500 border-b border-glr-700/50 mb-2">
+                            <div className="col-span-1 text-center">#</div>
+                            <div className="col-span-5">Descrizione Attività</div>
+                            <div className="col-span-3">Inizio</div>
+                            <div className="col-span-3">Fine</div>
+                        </div>
+
+                        <div className="space-y-3">
                             {activeJob.phases.map((phase, idx) => (
-                                <div key={phase.id} className="bg-glr-900 border border-glr-700 p-2 rounded-lg flex items-center gap-2 overflow-x-auto">
-                                    <span className="text-xs text-gray-500 font-bold shrink-0 w-6 text-center">{idx + 1}</span>
-                                    <input disabled={!canEdit} type="text" value={phase.name} onChange={e => updatePhase(phase.id, 'name', e.target.value)} className="flex-1 min-w-[120px] bg-glr-800 border border-glr-600 rounded px-2 py-1 text-white text-xs"/>
-                                    <input disabled={!canEdit} type="datetime-local" value={phase.start} onChange={e => updatePhase(phase.id, 'start', e.target.value)} className="w-32 bg-glr-800 border border-glr-600 rounded px-1 py-1 text-white text-[10px]"/>
-                                    <input disabled={!canEdit} type="datetime-local" value={phase.end} onChange={e => updatePhase(phase.id, 'end', e.target.value)} className="w-32 bg-glr-800 border border-glr-600 rounded px-1 py-1 text-white text-[10px]"/>
-                                    {canEdit && <button onClick={() => removePhase(phase.id)} className="text-gray-500 hover:text-red-400 p-1"><Trash2 size={14}/></button>}
+                                <div key={phase.id} className="bg-glr-800 border border-glr-700 p-4 rounded-lg grid grid-cols-1 md:grid-cols-12 gap-4 items-center shadow-sm hover:border-glr-500 transition-colors relative group">
+                                    <div className="col-span-1 text-center">
+                                        <span className="bg-glr-900 text-gray-400 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">{idx + 1}</span>
+                                    </div>
+                                    <div className="col-span-11 md:col-span-5">
+                                        <input disabled={!canEdit} type="text" value={phase.name} onChange={e => updatePhase(phase.id, 'name', e.target.value)} className="w-full bg-glr-900 border border-glr-600 rounded p-3 text-white text-base focus:border-glr-accent outline-none" placeholder="Nome fase (es. Montaggio)"/>
+                                    </div>
+                                    <div className="col-span-6 md:col-span-3">
+                                        <label className="block md:hidden text-xs text-gray-500 mb-1">Inizio</label>
+                                        <input disabled={!canEdit} type="datetime-local" value={phase.start} onChange={e => updatePhase(phase.id, 'start', e.target.value)} className="w-full bg-glr-900 border border-glr-600 rounded p-3 text-white text-sm"/>
+                                    </div>
+                                    <div className="col-span-6 md:col-span-3 relative">
+                                        <label className="block md:hidden text-xs text-gray-500 mb-1">Fine</label>
+                                        <input disabled={!canEdit} type="datetime-local" value={phase.end} onChange={e => updatePhase(phase.id, 'end', e.target.value)} className="w-full bg-glr-900 border border-glr-600 rounded p-3 text-white text-sm"/>
+                                        {canEdit && <button onClick={() => removePhase(phase.id)} className="absolute -right-2 -top-2 md:top-3 md:-right-12 bg-red-900/20 text-red-400 p-2 rounded-full hover:bg-red-600 hover:text-white transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={16}/></button>}
+                                    </div>
                                 </div>
                             ))}
+                            {activeJob.phases.length === 0 && <p className="text-center text-gray-500 py-4 italic">Nessuna fase operativa inserita.</p>}
                         </div>
                      </div>
 
-                     <div className="border-t border-glr-700 pt-6">
-                        <div className="flex justify-between items-center mb-2">
-                            <h3 className="text-white font-bold flex items-center gap-2"><Truck size={18}/> Logistica Mezzi</h3>
-                            {canEdit && <button onClick={addVehicle} className="bg-glr-700 hover:bg-glr-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1"><Plus size={16}/> Aggiungi Mezzo</button>}
+                     {/* LOGISTICS */}
+                     <div className="bg-glr-900/30 p-4 rounded-xl border border-glr-700/50">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-white font-bold flex items-center gap-2 text-lg"><Truck size={20} className="text-glr-accent"/> Logistica Mezzi</h3>
+                            {canEdit && <button onClick={addVehicle} className="bg-glr-700 hover:bg-white hover:text-glr-900 text-white px-4 py-2 rounded font-bold text-sm flex items-center gap-2 transition-colors"><Plus size={18}/> Aggiungi Mezzo</button>}
                         </div>
-                        <div className="space-y-2">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             {activeJob.vehicles.map(v => (
-                                <div key={v.id} className="bg-glr-900 border border-glr-700 p-3 rounded-lg">
-                                    <div className="flex gap-2 mb-2">
-                                        <select disabled={!canEdit} value={v.type} onChange={e => updateVehicle(v.id, 'type', e.target.value)} className="bg-glr-800 border border-glr-600 rounded text-white text-sm p-1 w-32">
-                                            {Object.values(VehicleType).map(t => <option key={t} value={t}>{t}</option>)}
-                                        </select>
-                                        <input disabled={!canEdit} type="number" min="1" value={v.quantity} onChange={e => updateVehicle(v.id, 'quantity', parseInt(e.target.value))} className="w-16 bg-glr-800 border border-glr-600 rounded text-white text-sm p-1 text-center"/>
-                                        <label className="flex items-center gap-2 text-sm text-gray-300 ml-2"><input disabled={!canEdit} type="checkbox" checked={v.isRental} onChange={e => updateVehicle(v.id, 'isRental', e.target.checked)}/> Noleggio</label>
-                                        {canEdit && <button onClick={() => removeVehicle(v.id)} className="ml-auto text-gray-500 hover:text-red-400"><Trash2 size={16}/></button>}
+                                <div key={v.id} className="bg-glr-800 border border-glr-700 p-5 rounded-xl shadow-lg relative hover:border-glr-500 transition-all group">
+                                    <div className="flex gap-4 mb-4 items-center">
+                                        <div className="flex-1">
+                                            <label className="block text-xs text-gray-400 mb-1 uppercase font-bold">Tipologia Mezzo</label>
+                                            <select disabled={!canEdit} value={v.type} onChange={e => updateVehicle(v.id, 'type', e.target.value)} className="w-full bg-glr-900 border border-glr-600 rounded text-white text-base p-3">
+                                                {Object.values(VehicleType).map(t => <option key={t} value={t}>{t}</option>)}
+                                            </select>
+                                        </div>
+                                        <div className="w-20">
+                                            <label className="block text-xs text-gray-400 mb-1 uppercase font-bold text-center">Qtà</label>
+                                            <input disabled={!canEdit} type="number" min="1" value={v.quantity} onChange={e => updateVehicle(v.id, 'quantity', parseInt(e.target.value))} className="w-full bg-glr-900 border border-glr-600 rounded text-white text-base p-3 text-center"/>
+                                        </div>
                                     </div>
+                                    
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <label className="flex items-center gap-2 cursor-pointer bg-glr-900 px-3 py-2 rounded border border-glr-600 hover:border-glr-400 transition-colors w-full">
+                                            <input disabled={!canEdit} type="checkbox" checked={v.isRental} onChange={e => updateVehicle(v.id, 'isRental', e.target.checked)} className="w-5 h-5 rounded text-glr-accent bg-glr-800 border-glr-500"/>
+                                            <span className="text-sm font-bold text-white">Richiede Noleggio Esterno</span>
+                                        </label>
+                                    </div>
+
                                     {v.isRental && (
-                                        <div className="grid grid-cols-2 gap-2 mt-2 p-2 bg-glr-800/50 rounded">
-                                            <input disabled={!canEdit} type="text" placeholder="Fornitore" value={v.rentalCompany} onChange={e => updateVehicle(v.id, 'rentalCompany', e.target.value)} className="w-full bg-glr-900 border border-glr-600 rounded p-1 text-xs text-white"/>
-                                            <input disabled={!canEdit} type="number" placeholder="Costo €" value={v.cost || ''} onChange={e => updateVehicle(v.id, 'cost', parseFloat(e.target.value))} className="w-full bg-glr-900 border border-glr-600 rounded p-1 text-xs text-white"/>
+                                        <div className="mt-4 p-4 bg-blue-900/10 border border-blue-800/50 rounded-lg space-y-4 animate-fade-in">
+                                            <div className="flex items-center gap-2 text-blue-300 text-xs uppercase font-bold border-b border-blue-800/30 pb-2 mb-2">
+                                                <BriefcaseIcon size={12}/> Dettagli Noleggio
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="col-span-2">
+                                                    <label className="block text-xs text-gray-400 mb-1">Fornitore</label>
+                                                    <input disabled={!canEdit} type="text" placeholder="Nome Azienda" value={v.rentalCompany || ''} onChange={e => updateVehicle(v.id, 'rentalCompany', e.target.value)} className="w-full bg-glr-900 border border-glr-600 rounded p-2 text-sm text-white"/>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs text-gray-400 mb-1">Data Ritiro</label>
+                                                    <input disabled={!canEdit} type="datetime-local" value={v.pickupDate || ''} onChange={e => updateVehicle(v.id, 'pickupDate', e.target.value)} className="w-full bg-glr-900 border border-glr-600 rounded p-2 text-sm text-white"/>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs text-gray-400 mb-1">Data Riconsegna</label>
+                                                    <input disabled={!canEdit} type="datetime-local" value={v.returnDate || ''} onChange={e => updateVehicle(v.id, 'returnDate', e.target.value)} className="w-full bg-glr-900 border border-glr-600 rounded p-2 text-sm text-white"/>
+                                                </div>
+                                                <div className="col-span-2">
+                                                    <label className="block text-xs text-gray-400 mb-1">Costo Stimato (€)</label>
+                                                    <input disabled={!canEdit} type="number" placeholder="0.00" value={v.cost || ''} onChange={e => updateVehicle(v.id, 'cost', parseFloat(e.target.value))} className="w-full bg-glr-900 border border-glr-600 rounded p-2 text-sm text-white"/>
+                                                </div>
+                                            </div>
                                         </div>
                                     )}
+                                    
+                                    {canEdit && <button onClick={() => removeVehicle(v.id)} className="absolute top-4 right-4 text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity bg-glr-900 p-2 rounded-full shadow-sm"><Trash2 size={18}/></button>}
                                 </div>
                             ))}
+                            {activeJob.vehicles.length === 0 && <p className="col-span-full text-center text-gray-500 py-4 italic">Nessun mezzo assegnato.</p>}
                         </div>
                      </div>
                 </div>
