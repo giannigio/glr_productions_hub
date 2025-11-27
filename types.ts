@@ -147,7 +147,7 @@ export interface CrewMember {
   id: string;
   name: string;
   type: CrewType;
-  roles: CrewRole[];
+  roles: string[]; // Changed from CrewRole[] to string[] to support dynamic roles
   dailyRate: number;
   overtimeRate?: number;
   travelIndemnity?: number;
@@ -284,11 +284,25 @@ export interface Job {
 }
 
 export interface RolePermissions {
-    canViewBudget: boolean;
-    canManageCrew: boolean;
-    canManageLocations: boolean;
-    canManageInventory: boolean;
+    // DASHBOARD
+    canViewDashboard: boolean;
+    // JOBS
+    canViewJobs: boolean;
+    canManageJobs: boolean;
     canDeleteJobs: boolean;
+    canViewBudget: boolean;
+    // CREW
+    canViewCrew: boolean;
+    canManageCrew: boolean;
+    // INVENTORY
+    canViewInventory: boolean;
+    canManageInventory: boolean;
+    // LOCATIONS
+    canViewLocations: boolean;
+    canManageLocations: boolean;
+    // EXPENSES
+    canViewExpenses: boolean;
+    canManageExpenses: boolean;
 }
 
 export interface AppSettings {
@@ -304,6 +318,7 @@ export interface AppSettings {
     googleCalendarClientId: string;
     googleCalendarClientSecret: string;
     googleCalendarId: string;
+    crewRoles: string[]; // Dynamic roles list
     permissions: {
         MANAGER: RolePermissions;
         TECH: RolePermissions;

@@ -17,20 +17,46 @@ let MOCK_SETTINGS: AppSettings = {
     googleCalendarClientId: '',
     googleCalendarClientSecret: '',
     googleCalendarId: '',
+    crewRoles: [
+        'Project Manager',
+        'Fellicista Audio',
+        'Operatore Luci',
+        'Tecnico Video',
+        'Rigger',
+        'Facchino',
+        'Autista',
+        'Responsabile Magazzino'
+    ],
     permissions: {
         MANAGER: {
-            canViewBudget: false,
+            canViewDashboard: true,
+            canViewJobs: true,
+            canManageJobs: true,
+            canDeleteJobs: false,
+            canViewBudget: true,
+            canViewCrew: true,
             canManageCrew: true,
-            canManageLocations: true,
+            canViewInventory: true,
             canManageInventory: true,
-            canDeleteJobs: false
+            canViewLocations: true,
+            canManageLocations: true,
+            canViewExpenses: true,
+            canManageExpenses: false
         },
         TECH: {
+            canViewDashboard: true,
+            canViewJobs: true,
+            canManageJobs: false,
+            canDeleteJobs: false,
             canViewBudget: false,
+            canViewCrew: true, // Only own profile usually handled by logic, but section visible
             canManageCrew: false,
-            canManageLocations: true,
+            canViewInventory: true,
             canManageInventory: false,
-            canDeleteJobs: false
+            canViewLocations: true,
+            canManageLocations: true,
+            canViewExpenses: true,
+            canManageExpenses: false
         }
     }
 };
@@ -64,10 +90,10 @@ let MOCK_LOCATIONS: Location[] = [
 ];
 
 let MOCK_CREW: CrewMember[] = [
-    { id: 'demo-admin-id', name: 'Admin Demo', type: CrewType.INTERNAL, roles: [CrewRole.PROJECT_MGR], dailyRate: 0, phone: '3339999999', email: 'admin@glr.it', password: 'password', accessRole: 'ADMIN', absences: [], expenses: [] },
-    { id: '2', name: 'Luca Bianchi', type: CrewType.INTERNAL, roles: [CrewRole.AUDIO_ENG], dailyRate: 0, phone: '3338888888', email: 'luca@glr.it', password: 'password', accessRole: 'TECH', absences: [], expenses: [] },
-    { id: '3', name: 'Marco Verdi', type: CrewType.FREELANCE, roles: [CrewRole.LIGHT_OP], dailyRate: 250, phone: '3337777777', absences: [], expenses: [] },
-    { id: '4', name: 'Giulia Neri', type: CrewType.FREELANCE, roles: [CrewRole.VIDEO_TECH], dailyRate: 300, phone: '3336666666', absences: [], expenses: [] }
+    { id: 'demo-admin-id', name: 'Admin Demo', type: CrewType.INTERNAL, roles: ['Project Manager'], dailyRate: 0, phone: '3339999999', email: 'admin@glr.it', password: 'password', accessRole: 'ADMIN', absences: [], expenses: [] },
+    { id: '2', name: 'Luca Bianchi', type: CrewType.INTERNAL, roles: ['Fellicista Audio'], dailyRate: 0, phone: '3338888888', email: 'luca@glr.it', password: 'password', accessRole: 'TECH', absences: [], expenses: [] },
+    { id: '3', name: 'Marco Verdi', type: CrewType.FREELANCE, roles: ['Operatore Luci'], dailyRate: 250, phone: '3337777777', absences: [], expenses: [] },
+    { id: '4', name: 'Giulia Neri', type: CrewType.FREELANCE, roles: ['Tecnico Video'], dailyRate: 300, phone: '3336666666', absences: [], expenses: [] }
 ];
 
 let MOCK_JOBS: Job[] = [

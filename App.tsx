@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Dashboard } from './components/Dashboard';
 import { Jobs } from './components/Jobs';
@@ -145,20 +146,23 @@ const App: React.FC = () => {
       setSettings(updated);
   };
 
-  // Permissions Check
-  const canAccess = (section: 'CREW' | 'INVENTORY' | 'LOCATIONS' | 'SETTINGS') => {
+  // Permissions Check - UPDATED LOGIC
+  const canAccess = (section: 'DASHBOARD' | 'JOBS' | 'CREW' | 'INVENTORY' | 'LOCATIONS' | 'EXPENSES' | 'SETTINGS') => {
       if (!currentUser || !settings?.permissions) return false;
       if (currentUser.role === 'ADMIN') return true;
       
       const role = currentUser.role as 'MANAGER' | 'TECH';
       const perms = settings.permissions[role];
 
-      if (section === 'CREW') return perms.canManageCrew;
-      if (section === 'INVENTORY') return perms.canManageInventory;
-      if (section === 'LOCATIONS') return perms.canManageLocations;
+      if (section === 'DASHBOARD') return perms.canViewDashboard;
+      if (section === 'JOBS') return perms.canViewJobs;
+      if (section === 'CREW') return perms.canViewCrew;
+      if (section === 'INVENTORY') return perms.canViewInventory;
+      if (section === 'LOCATIONS') return perms.canViewLocations;
+      if (section === 'EXPENSES') return perms.canViewExpenses;
       if (section === 'SETTINGS') return false; // Only Admin
       
-      return true; // Default visible
+      return false; 
   };
 
   const NavItem = ({ id, icon: Icon, label, visible = true }: { id: typeof activeTab, icon: any, label: string, visible?: boolean }) => {
@@ -201,13 +205,13 @@ const App: React.FC = () => {
         </div>
 
         <nav className="flex-1 space-y-2">
-          <NavItem id="DASHBOARD" icon={LayoutDashboard} label="Dashboard" />
-          <NavItem id="JOBS" icon={ClipboardList} label="Schede Lavoro" />
+          <NavItem id="DASHBOARD" icon={LayoutDashboard} label="Dashboard" visible={canAccess('DASHBOARD')}/>
+          <NavItem id="JOBS" icon={ClipboardList} label="Schede Lavoro" visible={canAccess('JOBS')}/>
           <NavItem id="INVENTORY" icon={Package} label="Magazzino" visible={canAccess('INVENTORY')} />
           <NavItem id="STD_LISTS" icon={Boxes} label="Kit & Liste" visible={canAccess('INVENTORY')} />
           <NavItem id="LOCATIONS" icon={MapPin} label="Locations" visible={canAccess('LOCATIONS')} />
           <NavItem id="CREW" icon={Users} label="Crew & Tecnici" visible={canAccess('CREW')} />
-          <NavItem id="EXPENSES" icon={FileText} label="Rimborsi" visible={currentUser.role === 'ADMIN'} />
+          <NavItem id="EXPENSES" icon={FileText} label="Rimborsi" visible={canAccess('EXPENSES')} />
         </nav>
 
         <div className="border-t border-glr-800 pt-4 mt-auto space-y-2">
@@ -253,25 +257,26 @@ const App: React.FC = () => {
 
         {isMobileMenuOpen && (
             <div className="md:hidden fixed inset-0 top-16 bg-glr-900 z-40 p-4 space-y-2">
-            <NavItem id="DASHBOARD" icon={LayoutDashboard} label="Dashboard" />
-            <NavItem id="JOBS" icon={ClipboardList} label="Schede Lavoro" />
+            <NavItem id="DASHBOARD" icon={LayoutDashboard} label="Dashboard" visible={canAccess('DASHBOARD')} />
+            <NavItem id="JOBS" icon={ClipboardList} label="Schede Lavoro" visible={canAccess('JOBS')} />
             <NavItem id="INVENTORY" icon={Package} label="Magazzino" visible={canAccess('INVENTORY')} />
             <NavItem id="STD_LISTS" icon={Boxes} label="Kit & Liste" visible={canAccess('INVENTORY')} />
             <NavItem id="LOCATIONS" icon={MapPin} label="Locations" visible={canAccess('LOCATIONS')} />
             <NavItem id="CREW" icon={Users} label="Crew & Tecnici" visible={canAccess('CREW')} />
+            <NavItem id="EXPENSES" icon={FileText} label="Rimborsi" visible={canAccess('EXPENSES')} />
             <NavItem id="SETTINGS" icon={SettingsIcon} label="Impostazioni" visible={currentUser.role === 'ADMIN'} />
             </div>
         )}
 
         <main className="flex-1 overflow-auto p-4 md:p-8 bg-[#0b1120]">
             <div className="max-w-7xl mx-auto h-full">
-            {activeTab === 'DASHBOARD' && <Dashboard jobs={jobs} crew={crew} currentUser={currentUser} onUpdateCrew={handleUpdateCrew} />}
-            {activeTab === 'JOBS' && <Jobs jobs={jobs} crew={crew} locations={locations} inventory={inventory} standardLists={standardLists} onAddJob={handleAddJob} onUpdateJob={handleUpdateJob} onDeleteJob={handleDeleteJob} currentUser={currentUser} settings={settings} />}
+            {activeTab === 'DASHBOARD' && canAccess('DASHBOARD') && <Dashboard jobs={jobs} crew={crew} currentUser={currentUser} onUpdateCrew={handleUpdateCrew} />}
+            {activeTab === 'JOBS' && canAccess('JOBS') && <Jobs jobs={jobs} crew={crew} locations={locations} inventory={inventory} standardLists={standardLists} onAddJob={handleAddJob} onUpdateJob={handleUpdateJob} onDeleteJob={handleDeleteJob} currentUser={currentUser} settings={settings} />}
             {activeTab === 'INVENTORY' && canAccess('INVENTORY') && <Inventory inventory={inventory} onAddItem={handleAddInventory} onUpdateItem={handleUpdateInventory} onDeleteItem={handleDeleteInventory} />}
             {activeTab === 'STD_LISTS' && canAccess('INVENTORY') && <StandardLists lists={standardLists} inventory={inventory} onAddList={handleAddStdList} onUpdateList={handleUpdateStdList} onDeleteList={handleDeleteStdList} />}
             {activeTab === 'LOCATIONS' && canAccess('LOCATIONS') && <Locations locations={locations} onAddLocation={handleAddLocation} onUpdateLocation={handleUpdateLocation} onDeleteLocation={handleDeleteLocation} currentUser={currentUser} />}
             {activeTab === 'CREW' && canAccess('CREW') && <Crew crew={crew} onUpdateCrew={handleUpdateCrew} jobs={jobs} settings={settings} />}
-            {activeTab === 'EXPENSES' && currentUser.role === 'ADMIN' && <ExpensesDashboard crew={crew} jobs={jobs} />}
+            {activeTab === 'EXPENSES' && canAccess('EXPENSES') && <ExpensesDashboard crew={crew} jobs={jobs} />}
             {activeTab === 'SETTINGS' && settings && currentUser.role === 'ADMIN' && <Settings settings={settings} onUpdateSettings={handleUpdateSettings} />}
             </div>
         </main>
