@@ -1,17 +1,18 @@
-import { Job, JobStatus, InventoryItem } from '../types';
+import { Job, JobStatus, InventoryItem, Rental, RentalStatus } from '../types';
 
 export interface AvailabilityResult {
   available: number;
-  conflicts: { jobName: string; quantity: number }[];
+  conflicts: { type: 'JOB' | 'RENTAL'; name: string; quantity: number }[];
 }
 
 export const checkAvailabilityHelper = (
     inventory: InventoryItem[], 
     jobs: Job[],
+    rentals: Rental[],
     inventoryId: string, 
     startDate: string, 
     endDate: string, 
-    currentJobId?: string
+    excludeId?: string
 ): AvailabilityResult => {
   const item = inventory.find(i => i.id === inventoryId);
   if (!item) return { available: 0, conflicts: [] };
@@ -20,20 +21,39 @@ export const checkAvailabilityHelper = (
   const end = new Date(endDate).getTime();
 
   let used = 0;
-  const conflicts: { jobName: string; quantity: number }[] = [];
+  const conflicts: { type: 'JOB' | 'RENTAL'; name: string; quantity: number }[] = [];
 
+  // Check Jobs
   jobs.forEach(job => {
-    if (job.status === JobStatus.CANCELLED || job.id === currentJobId) return;
+    if (job.status === JobStatus.CANCELLED || job.id === excludeId) return;
     
     const jobStart = new Date(job.startDate).getTime();
     const jobEnd = new Date(job.endDate).getTime();
 
+    // Check overlap
     if (start <= jobEnd && end >= jobStart) {
       const mat = job.materialList.find(m => m.inventoryId === inventoryId);
       if (mat) {
         used += mat.quantity;
-        conflicts.push({ jobName: job.title, quantity: mat.quantity });
+        conflicts.push({ type: 'JOB', name: job.title, quantity: mat.quantity });
       }
+    }
+  });
+
+  // Check Rentals
+  rentals.forEach(rental => {
+    if (rental.status === RentalStatus.CANCELLED || rental.status === RentalStatus.RETURNED || rental.id === excludeId) return;
+
+    const rentStart = new Date(rental.pickupDate).getTime();
+    const rentEnd = new Date(rental.returnDate).getTime();
+
+    // Check overlap
+    if (start <= rentEnd && end >= rentStart) {
+        const mat = rental.items.find(m => m.inventoryId === inventoryId);
+        if (mat) {
+            used += mat.quantity;
+            conflicts.push({ type: 'RENTAL', name: `Nol. ${rental.client}`, quantity: mat.quantity });
+        }
     }
   });
 

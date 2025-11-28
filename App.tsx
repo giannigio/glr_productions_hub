@@ -9,13 +9,14 @@ import { Inventory } from './components/Inventory';
 import { ExpensesDashboard } from './components/ExpensesDashboard';
 import { Settings } from './components/Settings';
 import { StandardLists } from './components/StandardLists';
+import { Rentals } from './components/Rentals';
 import { Login } from './components/Login';
-import { Job, CrewMember, Location, InventoryItem, Notification, SystemRole, AppSettings, StandardMaterialList } from './types';
+import { Job, CrewMember, Location, InventoryItem, Notification, SystemRole, AppSettings, StandardMaterialList, Rental } from './types';
 import { api } from './services/api'; 
-import { LayoutDashboard, ClipboardList, Users, Settings as SettingsIcon, LogOut, Menu, X, Loader2, MapPin, Package, Bell, Info, AlertTriangle, CheckCircle, FileText, Boxes } from 'lucide-react';
+import { LayoutDashboard, ClipboardList, Users, Settings as SettingsIcon, LogOut, Menu, X, Loader2, MapPin, Package, Bell, Info, AlertTriangle, CheckCircle, FileText, Boxes, ShoppingBag } from 'lucide-react';
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'JOBS' | 'CREW' | 'LOCATIONS' | 'INVENTORY' | 'STD_LISTS' | 'EXPENSES' | 'SETTINGS'>('DASHBOARD');
+  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'JOBS' | 'CREW' | 'LOCATIONS' | 'INVENTORY' | 'STD_LISTS' | 'RENTALS' | 'EXPENSES' | 'SETTINGS'>('DASHBOARD');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   
@@ -25,6 +26,7 @@ const App: React.FC = () => {
   const [locations, setLocations] = useState<Location[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [standardLists, setStandardLists] = useState<StandardMaterialList[]>([]);
+  const [rentals, setRentals] = useState<Rental[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -45,12 +47,13 @@ const App: React.FC = () => {
 
     const loadData = async () => {
       try {
-        const [fetchedJobs, fetchedCrew, fetchedLocations, fetchedInventory, fetchedStdLists, fetchedNotifs, fetchedSettings] = await Promise.all([
+        const [fetchedJobs, fetchedCrew, fetchedLocations, fetchedInventory, fetchedStdLists, fetchedRentals, fetchedNotifs, fetchedSettings] = await Promise.all([
           api.getJobs(),
           api.getCrew(),
           api.getLocations(),
           api.getInventory(),
           api.getStandardLists(),
+          api.getRentals(),
           api.getNotifications(),
           api.getSettings()
         ]);
@@ -59,6 +62,7 @@ const App: React.FC = () => {
         setLocations(fetchedLocations);
         setInventory(fetchedInventory);
         setStandardLists(fetchedStdLists);
+        setRentals(fetchedRentals);
         setNotifications(fetchedNotifs);
         setSettings(fetchedSettings);
       } catch (error) {
@@ -135,6 +139,21 @@ const App: React.FC = () => {
       await api.deleteStandardList(id);
       setStandardLists(prev => prev.filter(l => l.id !== id));
   };
+  
+  const handleAddRental = async (rental: Rental) => {
+      const saved = await api.createRental(rental);
+      setRentals(prev => [...prev, saved]);
+  };
+  
+  const handleUpdateRental = async (rental: Rental) => {
+      await api.updateRental(rental);
+      setRentals(prev => prev.map(r => r.id === rental.id ? rental : r));
+  };
+  
+  const handleDeleteRental = async (id: string) => {
+      await api.deleteRental(id);
+      setRentals(prev => prev.filter(r => r.id !== id));
+  };
 
   const handleUpdateCrew = async (member: CrewMember) => {
       const updated = await api.updateCrewMember(member);
@@ -147,7 +166,7 @@ const App: React.FC = () => {
   };
 
   // Permissions Check - UPDATED LOGIC
-  const canAccess = (section: 'DASHBOARD' | 'JOBS' | 'CREW' | 'INVENTORY' | 'LOCATIONS' | 'EXPENSES' | 'SETTINGS') => {
+  const canAccess = (section: 'DASHBOARD' | 'JOBS' | 'CREW' | 'INVENTORY' | 'LOCATIONS' | 'EXPENSES' | 'RENTALS' | 'SETTINGS') => {
       if (!currentUser || !settings?.permissions) return false;
       if (currentUser.role === 'ADMIN') return true;
       
@@ -160,6 +179,7 @@ const App: React.FC = () => {
       if (section === 'INVENTORY') return perms.canViewInventory;
       if (section === 'LOCATIONS') return perms.canViewLocations;
       if (section === 'EXPENSES') return perms.canViewExpenses;
+      if (section === 'RENTALS') return perms.canViewRentals;
       if (section === 'SETTINGS') return false; // Only Admin
       
       return false; 
@@ -192,7 +212,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-glr-900 text-gray-100 overflow-hidden font-sans">
-      <aside className="hidden md:flex flex-col w-64 bg-glr-900 border-r border-glr-800 p-4 shrink-0 z-20">
+      <aside className="hidden md:flex flex-col w-64 bg-glr-900 border-r border-glr-800 p-4 shrink-0 z-20 print:hidden">
         <div className="flex items-center gap-3 mb-8 px-2">
           {settings?.logoUrl ? (
                <img src={settings.logoUrl} className="w-10 h-10 object-contain brightness-0 invert" alt="GLR" />
@@ -209,6 +229,7 @@ const App: React.FC = () => {
           <NavItem id="JOBS" icon={ClipboardList} label="Schede Lavoro" visible={canAccess('JOBS')}/>
           <NavItem id="INVENTORY" icon={Package} label="Magazzino" visible={canAccess('INVENTORY')} />
           <NavItem id="STD_LISTS" icon={Boxes} label="Kit & Liste" visible={canAccess('INVENTORY')} />
+          <NavItem id="RENTALS" icon={ShoppingBag} label="Noleggi" visible={canAccess('RENTALS')} />
           <NavItem id="LOCATIONS" icon={MapPin} label="Locations" visible={canAccess('LOCATIONS')} />
           <NavItem id="CREW" icon={Users} label="Crew & Tecnici" visible={canAccess('CREW')} />
           <NavItem id="EXPENSES" icon={FileText} label="Rimborsi" visible={canAccess('EXPENSES')} />
@@ -225,7 +246,7 @@ const App: React.FC = () => {
       </aside>
 
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-        <header className="h-16 bg-glr-900 border-b border-glr-800 flex items-center justify-between px-4 md:px-8 shrink-0 z-30">
+        <header className="h-16 bg-glr-900 border-b border-glr-800 flex items-center justify-between px-4 md:px-8 shrink-0 z-30 print:hidden">
              <div className="md:hidden flex items-center gap-3">
                 <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-white">{isMobileMenuOpen ? <X /> : <Menu />}</button>
                 <span className="font-bold text-lg">GLR HUB</span>
@@ -256,11 +277,12 @@ const App: React.FC = () => {
         </header>
 
         {isMobileMenuOpen && (
-            <div className="md:hidden fixed inset-0 top-16 bg-glr-900 z-40 p-4 space-y-2">
+            <div className="md:hidden fixed inset-0 top-16 bg-glr-900 z-40 p-4 space-y-2 print:hidden">
             <NavItem id="DASHBOARD" icon={LayoutDashboard} label="Dashboard" visible={canAccess('DASHBOARD')} />
             <NavItem id="JOBS" icon={ClipboardList} label="Schede Lavoro" visible={canAccess('JOBS')} />
             <NavItem id="INVENTORY" icon={Package} label="Magazzino" visible={canAccess('INVENTORY')} />
             <NavItem id="STD_LISTS" icon={Boxes} label="Kit & Liste" visible={canAccess('INVENTORY')} />
+            <NavItem id="RENTALS" icon={ShoppingBag} label="Noleggi" visible={canAccess('RENTALS')} />
             <NavItem id="LOCATIONS" icon={MapPin} label="Locations" visible={canAccess('LOCATIONS')} />
             <NavItem id="CREW" icon={Users} label="Crew & Tecnici" visible={canAccess('CREW')} />
             <NavItem id="EXPENSES" icon={FileText} label="Rimborsi" visible={canAccess('EXPENSES')} />
@@ -268,12 +290,13 @@ const App: React.FC = () => {
             </div>
         )}
 
-        <main className="flex-1 overflow-auto p-4 md:p-8 bg-[#0b1120]">
-            <div className="max-w-7xl mx-auto h-full">
+        <main className="flex-1 overflow-auto p-4 md:p-8 bg-[#0b1120] print:bg-white print:p-0">
+            <div className="max-w-7xl mx-auto h-full print:max-w-none print:h-auto">
             {activeTab === 'DASHBOARD' && canAccess('DASHBOARD') && <Dashboard jobs={jobs} crew={crew} currentUser={currentUser} onUpdateCrew={handleUpdateCrew} />}
             {activeTab === 'JOBS' && canAccess('JOBS') && <Jobs jobs={jobs} crew={crew} locations={locations} inventory={inventory} standardLists={standardLists} onAddJob={handleAddJob} onUpdateJob={handleUpdateJob} onDeleteJob={handleDeleteJob} currentUser={currentUser} settings={settings} />}
             {activeTab === 'INVENTORY' && canAccess('INVENTORY') && <Inventory inventory={inventory} onAddItem={handleAddInventory} onUpdateItem={handleUpdateInventory} onDeleteItem={handleDeleteInventory} />}
             {activeTab === 'STD_LISTS' && canAccess('INVENTORY') && <StandardLists lists={standardLists} inventory={inventory} onAddList={handleAddStdList} onUpdateList={handleUpdateStdList} onDeleteList={handleDeleteStdList} />}
+            {activeTab === 'RENTALS' && canAccess('RENTALS') && <Rentals rentals={rentals} inventory={inventory} jobs={jobs} onAddRental={handleAddRental} onUpdateRental={handleUpdateRental} onDeleteRental={handleDeleteRental} settings={settings} currentUser={currentUser} />}
             {activeTab === 'LOCATIONS' && canAccess('LOCATIONS') && <Locations locations={locations} onAddLocation={handleAddLocation} onUpdateLocation={handleUpdateLocation} onDeleteLocation={handleDeleteLocation} currentUser={currentUser} />}
             {activeTab === 'CREW' && canAccess('CREW') && <Crew crew={crew} onUpdateCrew={handleUpdateCrew} jobs={jobs} settings={settings} />}
             {activeTab === 'EXPENSES' && canAccess('EXPENSES') && <ExpensesDashboard crew={crew} jobs={jobs} />}

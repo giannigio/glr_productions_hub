@@ -265,6 +265,11 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings }
                                                 <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" checked={localSettings.permissions.MANAGER.canViewLocations} onChange={() => updatePermission('MANAGER', 'canViewLocations')} className="rounded bg-glr-800 border-glr-600 text-glr-accent"/><span className="text-sm text-gray-300">Visualizza Location</span></label>
                                                 <label className="flex items-center gap-3 cursor-pointer ml-6"><input type="checkbox" checked={localSettings.permissions.MANAGER.canManageLocations} onChange={() => updatePermission('MANAGER', 'canManageLocations')} className="rounded bg-glr-800 border-glr-600 text-glr-accent"/><span className="text-xs text-gray-400">Gestione Location</span></label>
                                             </div>
+                                            <div className="space-y-2">
+                                                <h5 className="text-xs font-bold text-gray-500 uppercase">Noleggi & Esterni</h5>
+                                                <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" checked={localSettings.permissions.MANAGER.canViewRentals} onChange={() => updatePermission('MANAGER', 'canViewRentals')} className="rounded bg-glr-800 border-glr-600 text-glr-accent"/><span className="text-sm text-gray-300">Visualizza Noleggi</span></label>
+                                                <label className="flex items-center gap-3 cursor-pointer ml-6"><input type="checkbox" checked={localSettings.permissions.MANAGER.canManageRentals} onChange={() => updatePermission('MANAGER', 'canManageRentals')} className="rounded bg-glr-800 border-glr-600 text-glr-accent"/><span className="text-xs text-gray-400">Gestione Noleggi (Crea/Modifica)</span></label>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -292,6 +297,11 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings }
                                                 <label className="flex items-center gap-3 cursor-pointer ml-6"><input type="checkbox" checked={localSettings.permissions.TECH.canManageInventory} onChange={() => updatePermission('TECH', 'canManageInventory')} className="rounded bg-glr-800 border-glr-600 text-glr-accent"/><span className="text-xs text-gray-400">Gestione Completa Inventario</span></label>
                                                 <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" checked={localSettings.permissions.TECH.canViewLocations} onChange={() => updatePermission('TECH', 'canViewLocations')} className="rounded bg-glr-800 border-glr-600 text-glr-accent"/><span className="text-sm text-gray-300">Visualizza Location</span></label>
                                                 <label className="flex items-center gap-3 cursor-pointer ml-6"><input type="checkbox" checked={localSettings.permissions.TECH.canManageLocations} onChange={() => updatePermission('TECH', 'canManageLocations')} className="rounded bg-glr-800 border-glr-600 text-glr-accent"/><span className="text-xs text-gray-400">Gestione Location</span></label>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <h5 className="text-xs font-bold text-gray-500 uppercase">Noleggi & Esterni</h5>
+                                                <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" checked={localSettings.permissions.TECH.canViewRentals} onChange={() => updatePermission('TECH', 'canViewRentals')} className="rounded bg-glr-800 border-glr-600 text-glr-accent"/><span className="text-sm text-gray-300">Visualizza Noleggi</span></label>
+                                                <label className="flex items-center gap-3 cursor-pointer ml-6"><input type="checkbox" checked={localSettings.permissions.TECH.canManageRentals} onChange={() => updatePermission('TECH', 'canManageRentals')} className="rounded bg-glr-800 border-glr-600 text-glr-accent"/><span className="text-xs text-gray-400">Gestione Noleggi (Crea/Modifica)</span></label>
                                             </div>
                                         </div>
                                     </div>

@@ -1,6 +1,4 @@
-
-
-import { Job, CrewMember, Location, InventoryItem, AppSettings, Notification, JobStatus, CrewType, CrewRole, ApprovalStatus, VehicleType, StandardMaterialList } from '../types';
+import { Job, CrewMember, Location, InventoryItem, AppSettings, Notification, JobStatus, CrewType, CrewRole, ApprovalStatus, VehicleType, StandardMaterialList, Rental, RentalStatus } from '../types';
 
 // --- MOCK DATA FOR DEMO MODE ---
 
@@ -41,7 +39,9 @@ let MOCK_SETTINGS: AppSettings = {
             canViewLocations: true,
             canManageLocations: true,
             canViewExpenses: true,
-            canManageExpenses: false
+            canManageExpenses: false,
+            canViewRentals: true,
+            canManageRentals: true
         },
         TECH: {
             canViewDashboard: true,
@@ -56,7 +56,9 @@ let MOCK_SETTINGS: AppSettings = {
             canViewLocations: true,
             canManageLocations: true,
             canViewExpenses: true,
-            canManageExpenses: false
+            canManageExpenses: false,
+            canViewRentals: true,
+            canManageRentals: false
         }
     }
 };
@@ -125,6 +127,19 @@ let MOCK_STANDARD_LISTS: StandardMaterialList[] = [
     }
 ];
 
+let MOCK_RENTALS: Rental[] = [
+    {
+        id: 'r1', status: RentalStatus.CONFIRMED, client: 'Service Partner SRL', contactName: 'Giovanni Muciaccia', contactPhone: '3330000000',
+        pickupDate: new Date().toISOString(), returnDate: new Date(Date.now() + 172800000).toISOString(), deliveryMethod: 'RITIRO',
+        items: [
+             { id: 'ri1', inventoryId: '5', name: 'Par LED', category: 'Luci', type: 'Faro', quantity: 4, isExternal: false },
+             { id: 'ri2', inventoryId: '7', name: 'HDMI 10m', category: 'Cavi', type: 'HDMI', quantity: 2, isExternal: false }
+        ],
+        notes: 'Pagamento al ritiro',
+        totalPrice: 150
+    }
+];
+
 // --- MOCK API ---
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
@@ -168,8 +183,36 @@ export const api = {
   updateStandardList: async (list: StandardMaterialList) => { await delay(300); MOCK_STANDARD_LISTS = MOCK_STANDARD_LISTS.map(l => l.id === list.id ? list : l); return list; },
   deleteStandardList: async (id: string) => { await delay(300); MOCK_STANDARD_LISTS = MOCK_STANDARD_LISTS.filter(l => l.id !== id); return true; },
 
+  getRentals: async () => { await delay(300); return [...MOCK_RENTALS]; },
+  createRental: async (rental: Rental) => { await delay(300); const n = {...rental, id: Date.now().toString()}; MOCK_RENTALS.push(n); return n; },
+  updateRental: async (rental: Rental) => { await delay(300); MOCK_RENTALS = MOCK_RENTALS.map(r => r.id === rental.id ? rental : r); return rental; },
+  deleteRental: async (id: string) => { await delay(300); MOCK_RENTALS = MOCK_RENTALS.filter(r => r.id !== id); return true; },
+
   getSettings: async () => { await delay(300); return MOCK_SETTINGS; },
   updateSettings: async (s: AppSettings) => { await delay(300); MOCK_SETTINGS = s; return s; },
 
-  getNotifications: async () => { await delay(300); return []; }
+  getNotifications: async (): Promise<Notification[]> => { 
+      await delay(300); 
+      // Return a sample notification to demonstrate the system
+      return [
+          {
+              id: 'notif-1',
+              type: 'INFO',
+              title: 'Benvenuto in GLR HUB',
+              message: 'Il sistema è stato aggiornato con le nuove funzionalità di Noleggio.',
+              timestamp: new Date().toISOString(),
+              read: false,
+              linkTo: 'RENTALS'
+          },
+          {
+              id: 'notif-2',
+              type: 'WARNING',
+              title: 'Scadenza Sicurezza',
+              message: 'Il certificato di sicurezza per Luca Bianchi scade tra 30 giorni.',
+              timestamp: new Date().toISOString(),
+              read: false,
+              linkTo: 'CREW'
+          }
+      ]; 
+  }
 };

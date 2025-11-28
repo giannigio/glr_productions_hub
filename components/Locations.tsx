@@ -1,7 +1,8 @@
 
-import React, { useState } from 'react';
+
+import React, { useState, useMemo } from 'react';
 import { Location } from '../types';
-import { MapPin, Phone, Zap, Network, Truck, Monitor, Plus, Edit3, Trash2, Save, X, ExternalLink, Speaker, Box, FileText, Ruler, Eye } from 'lucide-react';
+import { MapPin, Phone, Zap, Network, Truck, Monitor, Plus, Edit3, Trash2, Save, X, ExternalLink, Speaker, FileText, Ruler, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface LocationsProps {
   locations: Location[];
@@ -11,9 +12,13 @@ interface LocationsProps {
   currentUser?: { role: 'ADMIN' | 'MANAGER' | 'TECH' };
 }
 
+const ITEMS_PER_PAGE = 9;
+
 export const Locations: React.FC<LocationsProps> = ({ locations, onAddLocation, onUpdateLocation, onDeleteLocation, currentUser }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [activeLoc, setActiveLoc] = useState<Location | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
   const handleNew = () => {
     const newLoc: Location = {
@@ -39,6 +44,20 @@ export const Locations: React.FC<LocationsProps> = ({ locations, onAddLocation, 
   };
 
   const toggleArrayItem = (arr: string[], item: string): string[] => arr.includes(item) ? arr.filter(i => i !== item) : [...arr, item];
+
+  const filteredLocations = useMemo(() => {
+      const s = searchTerm.toLowerCase();
+      return locations.filter(l => 
+          l.name.toLowerCase().includes(s) || 
+          l.address.toLowerCase().includes(s) || 
+          l.contactName.toLowerCase().includes(s)
+      );
+  }, [locations, searchTerm]);
+
+  const totalPages = Math.ceil(filteredLocations.length / ITEMS_PER_PAGE);
+  const currentLocations = filteredLocations.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  React.useEffect(() => { setCurrentPage(1); }, [searchTerm]);
 
   if (isEditing && activeLoc) {
     return (
@@ -204,32 +223,50 @@ export const Locations: React.FC<LocationsProps> = ({ locations, onAddLocation, 
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 h-full flex flex-col">
+      <div className="flex justify-between items-center shrink-0">
         <h2 className="text-2xl font-bold text-white">Database Locations</h2>
-        <button onClick={handleNew} className="flex items-center gap-2 bg-glr-accent text-glr-900 font-bold px-4 py-2 rounded-lg hover:bg-amber-400 transition-colors"><Plus size={20} /> Nuova Location</button>
+        <div className="flex gap-2">
+             <div className="relative">
+                 <Search size={16} className="absolute left-3 top-2.5 text-gray-400"/>
+                 <input type="text" placeholder="Cerca Location..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-64 bg-glr-800 border border-glr-700 rounded-lg pl-9 pr-3 py-2 text-white text-sm focus:border-glr-accent outline-none"/>
+             </div>
+             <button onClick={handleNew} className="flex items-center gap-2 bg-glr-accent text-glr-900 font-bold px-4 py-2 rounded-lg hover:bg-amber-400 transition-colors"><Plus size={20} /> Nuova Location</button>
+        </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {locations.map(loc => (
-          <div key={loc.id} className="bg-glr-800 rounded-xl border border-glr-700 flex flex-col hover:border-glr-accent transition-colors group">
-            <div className="p-5 flex-1">
-                <div className="flex justify-between items-start mb-2"><h3 className="text-lg font-bold text-white group-hover:text-glr-accent transition-colors">{loc.name}</h3>{loc.isZtl && <span className="text-xs bg-red-900/50 text-red-300 px-2 py-1 rounded border border-red-800">ZTL</span>}</div>
-                <p className="text-sm text-gray-400 flex items-start gap-1 mb-3"><MapPin size={14} className="mt-0.5 shrink-0" /> {loc.address}</p>
-                <div className="space-y-2 mt-4 text-sm">
-                    <div className="flex items-center gap-2 text-gray-300"><Phone size={14} className="text-glr-accent" /><span>{loc.contactName} - {loc.contactPhone}</span></div>
-                     <div className="flex items-center gap-2 text-gray-300"><Zap size={14} className={loc.power.requiresGenerator ? "text-red-400" : "text-green-400"} /><span>{loc.power.requiresGenerator ? 'Serve Generatore' : `${loc.power.hasCivil ? 'Civile' : ''} ${loc.power.hasIndustrial ? 'Industriale' : ''}`}</span></div>
+
+      <div className="flex-1 overflow-y-auto pb-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {currentLocations.length === 0 && <div className="col-span-full text-center text-gray-500 py-10 italic">Nessuna location trovata.</div>}
+            {currentLocations.map(loc => (
+            <div key={loc.id} className="bg-glr-800 rounded-xl border border-glr-700 flex flex-col hover:border-glr-accent transition-colors group">
+                <div className="p-5 flex-1">
+                    <div className="flex justify-between items-start mb-2"><h3 className="text-lg font-bold text-white group-hover:text-glr-accent transition-colors">{loc.name}</h3>{loc.isZtl && <span className="text-xs bg-red-900/50 text-red-300 px-2 py-1 rounded border border-red-800">ZTL</span>}</div>
+                    <p className="text-sm text-gray-400 flex items-start gap-1 mb-3"><MapPin size={14} className="mt-0.5 shrink-0" /> {loc.address}</p>
+                    <div className="space-y-2 mt-4 text-sm">
+                        <div className="flex items-center gap-2 text-gray-300"><Phone size={14} className="text-glr-accent" /><span>{loc.contactName} - {loc.contactPhone}</span></div>
+                        <div className="flex items-center gap-2 text-gray-300"><Zap size={14} className={loc.power.requiresGenerator ? "text-red-400" : "text-green-400"} /><span>{loc.power.requiresGenerator ? 'Serve Generatore' : `${loc.power.hasCivil ? 'Civile' : ''} ${loc.power.hasIndustrial ? 'Industriale' : ''}`}</span></div>
+                    </div>
+                </div>
+                <div className="bg-glr-900 p-3 border-t border-glr-700 flex justify-between items-center text-xs">
+                    {loc.mapsLink && (<a href={loc.mapsLink} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-blue-400 hover:underline"><ExternalLink size={12} /> Maps</a>)}
+                    <div className="flex gap-2 ml-auto">
+                        <button onClick={() => { setActiveLoc(loc); setIsEditing(true); }} className="text-gray-400 hover:text-white p-1" title="Modifica"><Edit3 size={16} /></button>
+                        <button onClick={() => onDeleteLocation(loc.id)} className="text-gray-400 hover:text-red-400 p-1" title="Elimina"><Trash2 size={16} /></button>
+                    </div>
                 </div>
             </div>
-            <div className="bg-glr-900 p-3 border-t border-glr-700 flex justify-between items-center text-xs">
-                {loc.mapsLink && (<a href={loc.mapsLink} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-blue-400 hover:underline"><ExternalLink size={12} /> Maps</a>)}
-                <div className="flex gap-2 ml-auto">
-                    <button onClick={() => { setActiveLoc(loc); setIsEditing(true); }} className="text-gray-400 hover:text-white p-1" title="Modifica"><Edit3 size={16} /></button>
-                    <button onClick={() => onDeleteLocation(loc.id)} className="text-gray-400 hover:text-red-400 p-1" title="Elimina"><Trash2 size={16} /></button>
-                </div>
-            </div>
-          </div>
-        ))}
+            ))}
+        </div>
       </div>
+
+       {totalPages > 1 && (
+            <div className="flex justify-between items-center bg-glr-800 p-3 rounded-xl border border-glr-700 shrink-0">
+                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-2 rounded hover:bg-glr-700 disabled:opacity-30 text-white"><ChevronLeft size={20} /></button>
+                <span className="text-sm text-gray-400">Pagina <span className="text-white font-bold">{currentPage}</span> di {totalPages}</span>
+                <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-2 rounded hover:bg-glr-700 disabled:opacity-30 text-white"><ChevronRight size={20} /></button>
+            </div>
+        )}
     </div>
   );
 };

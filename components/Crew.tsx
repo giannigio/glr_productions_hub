@@ -1,7 +1,6 @@
-
 import React, { useState, useMemo } from 'react';
-import { CrewMember, CrewRole, CrewType, CrewExpense, CrewAbsence, ApprovalStatus, Job, CrewDocument, CrewTask, FinancialDocument } from '../types';
-import { User, Phone, MapPin, DollarSign, Calendar, FileText, CheckCircle, XCircle, Clock, MessageSquare, AlertCircle, Plus, ChevronRight, LayoutGrid, FileDown, Upload, Trash2, Download, Lock, Key, Printer, X, Briefcase, ChevronLeft, Shield, AlertTriangle, FileCheck, Euro, Paperclip, Send } from 'lucide-react';
+import { CrewMember, CrewRole, CrewType, CrewExpense, CrewAbsence, ApprovalStatus, Job, CrewDocument, CrewTask, FinancialDocument, JobStatus } from '../types';
+import { User, Phone, MapPin, DollarSign, Calendar, FileText, CheckCircle, XCircle, Clock, MessageSquare, AlertCircle, Plus, ChevronRight, LayoutGrid, FileDown, Upload, Trash2, Download, Lock, Key, Printer, X, Briefcase, ChevronLeft, Shield, AlertTriangle, FileCheck, Euro, Paperclip, Send, BriefcaseIcon } from 'lucide-react';
 
 interface CrewProps {
   crew: CrewMember[];
@@ -25,6 +24,13 @@ export const Crew: React.FC<CrewProps> = ({ crew, onUpdateCrew, jobs = [], setti
 
   // Payroll State
   const [selectedPayrollYear, setSelectedPayrollYear] = useState(new Date().getFullYear());
+
+  // Expense Request State
+  const [isExpenseFormOpen, setIsExpenseFormOpen] = useState(false);
+  const [newExpJobId, setNewExpJobId] = useState('');
+  const [newExpAmount, setNewExpAmount] = useState('');
+  const [newExpCategory, setNewExpCategory] = useState('Viaggio');
+  const [newExpDesc, setNewExpDesc] = useState('');
 
   // --- PLANNING DATES LOGIC ---
   const getMonday = (d: Date) => {
@@ -134,6 +140,40 @@ export const Crew: React.FC<CrewProps> = ({ crew, onUpdateCrew, jobs = [], setti
       handleUpdateMember({ expenses: updatedExpenses });
   };
 
+  // --- EXPENSE REQUEST HANDLER ---
+  const handleSubmitExpense = () => {
+      if (!selectedMember || !onUpdateCrew || !newExpJobId || !newExpAmount) return;
+      
+      const job = jobs.find(j => j.id === newExpJobId);
+      
+      const newExpense: CrewExpense = {
+          id: Date.now().toString(),
+          date: new Date().toISOString(),
+          amount: parseFloat(newExpAmount),
+          category: newExpCategory as any,
+          description: newExpDesc,
+          jobId: job?.id,
+          jobTitle: job?.title,
+          status: ApprovalStatus.PENDING,
+          workflowLog: [{
+              id: Date.now().toString(),
+              date: new Date().toISOString(),
+              user: selectedMember.name,
+              action: 'Richiesta inviata al sistema' // Notification trigger
+          }],
+          attachmentUrl: '#' // Simulated
+      };
+
+      const updatedExpenses = [...(selectedMember.expenses || []), newExpense];
+      handleUpdateMember({ expenses: updatedExpenses });
+      
+      // Reset & Close
+      setIsExpenseFormOpen(false);
+      setNewExpJobId('');
+      setNewExpAmount('');
+      setNewExpDesc('');
+  };
+
   const getDocStatus = (type: string) => {
       if (!selectedMember?.documents) return 'MISSING';
       const doc = selectedMember.documents.find(d => d.type === type);
@@ -141,6 +181,15 @@ export const Crew: React.FC<CrewProps> = ({ crew, onUpdateCrew, jobs = [], setti
       if (doc.expiryDate && new Date(doc.expiryDate) < new Date()) return 'EXPIRED';
       return 'VALID';
   };
+
+  // Filter completed jobs for the selected crew member
+  const eligibleJobsForExpense = useMemo(() => {
+      if (!selectedMember) return [];
+      return jobs.filter(j => 
+          j.status === JobStatus.COMPLETED && 
+          j.assignedCrew.includes(selectedMember.id)
+      );
+  }, [jobs, selectedMember]);
 
   return (
       <div className="space-y-6 animate-fade-in relative">
@@ -216,7 +265,7 @@ export const Crew: React.FC<CrewProps> = ({ crew, onUpdateCrew, jobs = [], setti
                     <div className="flex gap-2">
                         <div className="flex items-center gap-2 text-xs text-gray-400"><span className="w-3 h-3 bg-blue-900/40 border border-blue-500 rounded"></span> Lavoro</div>
                         <div className="flex items-center gap-2 text-xs text-gray-400"><span className="w-3 h-3 bg-purple-900/40 border border-purple-500 rounded"></span> Manuale</div>
-                        <div className="flex items-center gap-2 text-xs text-gray-400"><span className="w-3 h-3 bg-gray-800 border border-glr-600 rounded"></span> Magazzino</div>
+                        <div className="flex items-center gap-2 text-xs text-gray-400"><span className="w-3 h-3 bg-gray-900 border border-glr-600 rounded"></span> Riposo</div>
                     </div>
                 </div>
 
@@ -239,33 +288,53 @@ export const Crew: React.FC<CrewProps> = ({ crew, onUpdateCrew, jobs = [], setti
                                     <td className="p-4 font-bold text-white sticky left-0 bg-glr-800 z-10 border-r border-glr-700 border-b border-glr-700">{c.name}</td>
                                     {weekDates.map((d, idx) => {
                                          const dateStr = d.toISOString().split('T')[0];
-                                         const activeJob = jobs.find(j => j.status !== 'Annullato' && j.assignedCrew.includes(c.id) && dateStr >= j.startDate && dateStr <= j.endDate);
+                                         
+                                         // Check Phase Assignment
+                                         let activePhase: { name: string, jobTitle: string } | null = null;
+                                         jobs.forEach(j => {
+                                             if (j.status === 'Annullato') return;
+                                             // Find matching phase
+                                             const phase = j.phases.find(p => 
+                                                 (p.assignedCrew || []).includes(c.id) && 
+                                                 dateStr >= p.start.split('T')[0] && 
+                                                 dateStr <= p.end.split('T')[0]
+                                             );
+                                             
+                                             if (phase) {
+                                                 activePhase = { name: phase.name, jobTitle: j.title };
+                                             } else if (j.assignedCrew.includes(c.id) && dateStr >= j.startDate && dateStr <= j.endDate && j.phases.length === 0) {
+                                                  // Fallback for old/simple jobs without phases
+                                                  activePhase = { name: 'Intero Evento', jobTitle: j.title };
+                                             }
+                                         });
+
                                          const manualTask = c.tasks?.find(t => t.date === dateStr);
                                          
-                                         // Logic for default state
-                                         const isWeekend = idx >= 5; // 5 = Sabato, 6 = Domenica
+                                         // Default states logic
+                                         const isWeekend = idx >= 5; // Sat/Sun
                                          let cellContent;
                                          let cellClass = "";
+                                         let cellTitle = "";
 
-                                         if (activeJob) {
+                                         if (activePhase) {
                                              cellClass = "bg-blue-600/20 text-blue-200 border-blue-500/50";
-                                             cellContent = activeJob.title;
+                                             cellContent = activePhase.name;
+                                             cellTitle = `${activePhase.jobTitle} - ${activePhase.name}`;
                                          } else if (manualTask) {
                                              cellClass = "bg-purple-600/20 text-purple-200 border-purple-500/50 font-bold";
                                              cellContent = manualTask.description;
                                          } else {
-                                             // Default States
                                              if (isWeekend) {
-                                                 cellClass = "bg-green-900/10 text-gray-500 border-transparent hover:border-gray-600 opacity-60";
+                                                 cellClass = "bg-glr-950/50 text-gray-600 border-transparent opacity-50"; // Darker for Rest
                                                  cellContent = "Riposo";
                                              } else {
-                                                 cellClass = "bg-glr-900/50 text-gray-600 border-transparent hover:border-gray-600";
+                                                 cellClass = "bg-glr-900/50 text-gray-500 border-transparent hover:border-gray-600";
                                                  cellContent = "Magazzino";
                                              }
                                          }
 
                                          return (
-                                            <td key={d.toString()} className="p-1 border-r border-b border-glr-700/50 cursor-pointer h-16 align-top" onClick={() => handleCellClick(c.id, d)}>
+                                            <td key={d.toString()} className="p-1 border-r border-b border-glr-700/50 cursor-pointer h-16 align-top" onClick={() => handleCellClick(c.id, d)} title={cellTitle}>
                                                 <div className={`w-full h-full p-2 rounded text-[11px] border transition-all flex items-center justify-center text-center ${cellClass}`}>
                                                     <span className="line-clamp-2">{cellContent}</span>
                                                 </div>
@@ -315,7 +384,20 @@ export const Crew: React.FC<CrewProps> = ({ crew, onUpdateCrew, jobs = [], setti
                                  <div className="p-3 bg-blue-50/50">
                                      <h4 className="font-bold border-b border-gray-300 mb-2 pb-1 text-blue-800 uppercase text-xs">Produzione</h4>
                                      <ul className="space-y-1">
-                                         {assignedCrew.map(c => { const job = jobs.find(j => j.assignedCrew.includes(c.id) && dateStr >= j.startDate && dateStr <= j.endDate); return (<li key={c.id} className="flex justify-between items-center text-blue-900"><span className="font-bold">{c.name}</span><span className="text-xs italic text-gray-600 truncate max-w-[100px]">{job?.title}</span></li>) })}
+                                         {assignedCrew.map(c => { 
+                                             let phaseName = '';
+                                             const job = jobs.find(j => {
+                                                 if (j.status === 'Annullato') return false;
+                                                 const phase = j.phases.find(p => (p.assignedCrew || []).includes(c.id) && dateStr >= p.start.split('T')[0] && dateStr <= p.end.split('T')[0]);
+                                                 if (phase) {
+                                                     phaseName = phase.name;
+                                                     return true;
+                                                 }
+                                                 return j.assignedCrew.includes(c.id) && dateStr >= j.startDate && dateStr <= j.endDate;
+                                             });
+                                             
+                                             return (<li key={c.id} className="flex justify-between items-center text-blue-900"><span className="font-bold">{c.name}</span><span className="text-xs italic text-gray-600 truncate max-w-[100px]">{phaseName || job?.title}</span></li>) 
+                                         })}
                                          {assignedCrew.length === 0 && <li className="text-xs text-gray-400 italic">-</li>}
                                      </ul>
                                  </div>
@@ -410,7 +492,7 @@ export const Crew: React.FC<CrewProps> = ({ crew, onUpdateCrew, jobs = [], setti
                                             {selectedMember.type === CrewType.FREELANCE && (
                                                 <div>
                                                     <label className="block text-xs text-gray-500 mb-1">Tariffa Giornaliera (€)</label>
-                                                    <input type="number" value={selectedMember.dailyRate || 0} onChange={e => handleUpdateMember({dailyRate: parseFloat(e.target.value)})} className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white text-sm" />
+                                                    <input type="number" value={selectedMember.dailyRate || 0} onChange={e => handleUpdateMember({dailyRate: parseFloat(e.target.value) || 0})} className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white text-sm" />
                                                 </div>
                                             )}
                                         </div>
@@ -570,11 +652,66 @@ export const Crew: React.FC<CrewProps> = ({ crew, onUpdateCrew, jobs = [], setti
 
                         {/* 5. EXPENSES TAB */}
                         {activeTab === 'EXPENSES' && (
-                            <div className="space-y-6">
+                            <div className="space-y-6 relative">
                                 <div className="flex justify-between items-center mb-4">
                                      <h4 className="text-white font-bold flex items-center gap-2"><Euro size={18}/> Storico Rimborsi</h4>
-                                     <div className="text-xs text-gray-400">Workflow: Inviata <ChevronRight size={10} className="inline"/> Accettata <ChevronRight size={10} className="inline"/> Rimborsata</div>
+                                     <div className="flex items-center gap-2">
+                                         {/* Only Techs or Admins can add expenses */}
+                                         {(currentUser?.role === 'ADMIN' || currentUser?.role === 'TECH' || currentUser?.role === 'MANAGER') && (
+                                             <button onClick={() => setIsExpenseFormOpen(true)} className="bg-glr-accent text-glr-900 px-3 py-1.5 rounded font-bold text-xs hover:bg-amber-400 flex items-center gap-2">
+                                                 <Plus size={14}/> Nuova Richiesta
+                                             </button>
+                                         )}
+                                     </div>
                                 </div>
+
+                                {isExpenseFormOpen && (
+                                    <div className="bg-glr-900/50 p-4 rounded-lg border border-glr-600 mb-6 animate-fade-in">
+                                        <div className="flex justify-between items-center mb-3 border-b border-glr-700 pb-2">
+                                            <h5 className="font-bold text-white text-sm">Inserisci Richiesta Rimborso</h5>
+                                            <button onClick={() => setIsExpenseFormOpen(false)} className="text-gray-400 hover:text-white"><X size={16}/></button>
+                                        </div>
+                                        
+                                        {/* Eligibility Warning */}
+                                        {eligibleJobsForExpense.length === 0 && (
+                                            <div className="bg-red-900/20 border border-red-800 p-2 rounded text-xs text-red-300 mb-3 flex items-center gap-2">
+                                                <AlertTriangle size={14}/> Non ci sono lavori "Completati" assegnati a questo tecnico. Impossibile richiedere rimborso.
+                                            </div>
+                                        )}
+
+                                        <div className="grid grid-cols-2 gap-4 mb-3">
+                                            <div className="col-span-2">
+                                                <label className="block text-xs text-gray-400 mb-1">Lavoro di Riferimento (Solo Completati)</label>
+                                                <select disabled={eligibleJobsForExpense.length === 0} value={newExpJobId} onChange={e => setNewExpJobId(e.target.value)} className="w-full bg-glr-800 border border-glr-600 rounded p-2 text-white text-sm">
+                                                    <option value="">-- Seleziona Lavoro --</option>
+                                                    {eligibleJobsForExpense.map(j => <option key={j.id} value={j.id}>{j.title}</option>)}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs text-gray-400 mb-1">Categoria</label>
+                                                <select disabled={eligibleJobsForExpense.length === 0} value={newExpCategory} onChange={e => setNewExpCategory(e.target.value)} className="w-full bg-glr-800 border border-glr-600 rounded p-2 text-white text-sm">
+                                                    <option>Viaggio</option>
+                                                    <option>Pasto</option>
+                                                    <option>Alloggio</option>
+                                                    <option>Materiale</option>
+                                                    <option>Altro</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs text-gray-400 mb-1">Importo (€)</label>
+                                                <input disabled={eligibleJobsForExpense.length === 0} type="number" value={newExpAmount} onChange={e => setNewExpAmount(e.target.value)} className="w-full bg-glr-800 border border-glr-600 rounded p-2 text-white text-sm" placeholder="0.00"/>
+                                            </div>
+                                            <div className="col-span-2">
+                                                <label className="block text-xs text-gray-400 mb-1">Descrizione / Giustificativo</label>
+                                                <input disabled={eligibleJobsForExpense.length === 0} type="text" value={newExpDesc} onChange={e => setNewExpDesc(e.target.value)} className="w-full bg-glr-800 border border-glr-600 rounded p-2 text-white text-sm" placeholder="Es. Benzina, Ricevuta Ristorante..."/>
+                                            </div>
+                                        </div>
+                                        <button onClick={handleSubmitExpense} disabled={!newExpJobId || !newExpAmount || eligibleJobsForExpense.length === 0} className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded text-sm disabled:opacity-50 transition-colors">
+                                            Invia Richiesta
+                                        </button>
+                                    </div>
+                                )}
+
                                 <div className="space-y-3">
                                     {(selectedMember.expenses || []).length === 0 && <p className="text-gray-500 italic">Nessuna nota spese.</p>}
                                     {[...(selectedMember.expenses || [])].reverse().map(exp => (

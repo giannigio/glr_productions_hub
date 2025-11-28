@@ -1,7 +1,9 @@
+
+
 import React, { useState, useMemo } from 'react';
-import { Job, JobStatus, MaterialItem, CrewMember, Location, InventoryItem, JobPhase, JobVehicle, VehicleType, OutfitType, StandardMaterialList, AppSettings, ApprovalStatus } from '../types';
+import { Job, JobStatus, MaterialItem, CrewMember, Location, InventoryItem, JobPhase, JobVehicle, VehicleType, OutfitType, StandardMaterialList, AppSettings, ApprovalStatus, CrewType } from '../types';
 import { checkAvailabilityHelper } from '../services/helpers';
-import { Plus, Calendar, MapPin, Trash2, Edit3, UserPlus, Package, Check, Clock, X, Truck, AlertTriangle, Info, ClipboardList, Speaker, Monitor, Zap, Box, Cable, ChevronRight, Search, Lightbulb, CheckSquare, Printer, Minus, Filter, ClipboardCheck, Copy, CalendarRange, Phone, Network, Archive, FolderOpen, Folder, ArrowDownCircle, ArrowLeft, ArrowRight, List, Briefcase, Mail, User, BriefcaseIcon, Shirt, FilePlus } from 'lucide-react';
+import { Plus, Calendar, MapPin, Trash2, Edit3, UserPlus, Package, Check, Clock, X, Truck, AlertTriangle, Info, ClipboardList, Speaker, Monitor, Zap, Box, Cable, ChevronRight, Search, Lightbulb, CheckSquare, Printer, Minus, Filter, ClipboardCheck, Copy, CalendarRange, Phone, Network, Archive, FolderOpen, Folder, ArrowDownCircle, ArrowLeft, ArrowRight, List, Briefcase, Mail, User, BriefcaseIcon, Shirt, FilePlus, Hotel, BedDouble, Plane, Navigation, Layers, Wifi, WifiOff, Users, Handshake } from 'lucide-react';
 
 interface JobsProps {
   jobs: Job[];
@@ -16,7 +18,7 @@ interface JobsProps {
   settings?: AppSettings;
 }
 
-const QUICK_ITEMS = [
+const BASE_QUICK_ITEMS = [
     { name: 'Tavolo Regia', category: 'Strutture', type: 'Arredo' },
     { name: 'Gaffa', category: 'Altro', type: 'Consumabili' },
     { name: 'Nastri', category: 'Altro', type: 'Consumabili' },
@@ -24,7 +26,7 @@ const QUICK_ITEMS = [
     { name: 'DPI', category: 'Altro', type: 'Sicurezza' },
     { name: 'Teli pioggia', category: 'Accessori', type: 'Meteo' },
     { name: 'Canaline', category: 'Cavi', type: 'Pedane' },
-    { name: 'Router 5G', category: 'Rete', type: 'Network' },
+    { name: 'Ciabatte AC', category: 'Cavi', type: 'Elettrico' },
 ];
 
 export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, standardLists = [], onAddJob, onUpdateJob, onDeleteJob, currentUser, settings }) => {
@@ -34,21 +36,21 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
   const [viewMode, setViewMode] = useState<'TIMELINE' | 'ARCHIVE'>('TIMELINE');
   
   // Material State
-  const [isCatalogOpen, setIsCatalogOpen] = useState(false);
+  const [addMode, setAddMode] = useState<'BROWSE' | 'MANUAL'>('BROWSE');
   const [isImportKitModalOpen, setIsImportKitModalOpen] = useState(false);
-  const [catalogCategory, setCatalogCategory] = useState('ALL');
   const [addedFeedback, setAddedFeedback] = useState<Record<string, boolean>>({}); 
   
-  const [matSource, setMatSource] = useState<'INVENTORY' | 'EXTERNAL'>('INVENTORY');
-  const [newMatInventoryId, setNewMatInventoryId] = useState('');
-  const [newMatName, setNewMatName] = useState('');
-  const [newMatCategory, setNewMatCategory] = useState('Audio');
-  const [newMatType, setNewMatType] = useState(''); 
-  const [newMatQty, setNewMatQty] = useState(1);
-  const [newMatSupplier, setNewMatSupplier] = useState('');
-  const [newMatCost, setNewMatCost] = useState(0);
-  const [newMatNotes, setNewMatNotes] = useState('');
+  // Manual Add State
+  const [manualName, setManualName] = useState('');
+  const [manualCategory, setManualCategory] = useState('Audio');
+  const [manualType, setManualType] = useState(''); 
+  const [manualQty, setManualQty] = useState(1);
+  const [manualCost, setManualCost] = useState(0);
+  const [manualNotes, setManualNotes] = useState('');
+  const [manualIsExternal, setManualIsExternal] = useState(false);
+  const [manualSupplier, setManualSupplier] = useState('');
   
+  // Inventory Browser Filters
   const [invSearchTerm, setInvSearchTerm] = useState('');
   const [invCategoryFilter, setInvCategoryFilter] = useState('ALL');
   const [invTypeFilter, setInvTypeFilter] = useState('ALL');
@@ -57,10 +59,6 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ACTIVE'); 
   
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
-  const [showArchived, setShowArchived] = useState(false);
-
   // Archive State
   const [expandedYears, setExpandedYears] = useState<Record<string, boolean>>({});
   const [expandedMonths, setExpandedMonths] = useState<Record<string, boolean>>({});
@@ -75,7 +73,7 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
       id: Date.now().toString(),
       title: '', client: '', internalClient: '', location: '', startDate: new Date().toISOString().split('T')[0], endDate: new Date().toISOString().split('T')[0],
       status: JobStatus.DRAFT, description: '', departments: [], isAwayJob: false, isSubcontracted: false, outfitNoLogo: false,
-      contactName: '', contactPhone: '', contactEmail: '',
+      contactName: '', contactPhone: '', contactEmail: '', hotelName: '', hotelAddress: '',
       phases: [], vehicles: [], materialList: [], assignedCrew: [], notes: ''
     };
     setActiveJob(newJob); setIsEditing(true); setActiveTab('DETAILS');
@@ -95,6 +93,13 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
       setIsEditing(true);
       setActiveTab('DETAILS');
       setIsTemplateModalOpen(false);
+  };
+
+  const toggleDepartment = (dept: string) => {
+      if (!activeJob) return;
+      const current = activeJob.departments || [];
+      const updated = current.includes(dept) ? current.filter(d => d !== dept) : [...current, dept];
+      setActiveJob({ ...activeJob, departments: updated });
   };
 
   const handleImportKit = (kit: StandardMaterialList) => {
@@ -130,6 +135,12 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
 
   const handlePrint = () => window.print();
 
+  const getRouteLink = (dest: string) => {
+        const origin = encodeURIComponent("Via San Giuseppe Cafasso 41, Roma");
+        const destination = encodeURIComponent(dest);
+        return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
+  };
+
   const addItemToList = (itemData: MaterialItem) => {
       setActiveJob(prev => { 
           if (!prev) return null; 
@@ -162,39 +173,80 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
       });
   };
 
-  const addManualMaterial = () => {
-      if (!activeJob) return;
-      let newItem: MaterialItem;
-      if (matSource === 'INVENTORY') {
-          const invItem = inventory.find(i => i.id === newMatInventoryId);
-          if (invItem) {
-              newItem = { id: Date.now().toString(), inventoryId: invItem.id, name: invItem.name, category: invItem.category, type: invItem.type, quantity: newMatQty, isExternal: false, notes: newMatNotes };
-          } else return;
-      } else {
-          newItem = { id: Date.now().toString(), name: newMatName || 'Materiale Esterno', category: newMatCategory as any, type: newMatType, quantity: newMatQty, isExternal: true, supplier: newMatSupplier, cost: newMatCost, notes: newMatNotes };
-      }
+  const handleAddManualItem = () => {
+      if (!activeJob || !manualName) return;
+      const newItem: MaterialItem = {
+          id: Date.now().toString(),
+          name: manualName,
+          category: manualCategory,
+          type: manualType,
+          quantity: manualQty,
+          isExternal: manualIsExternal,
+          cost: manualIsExternal ? manualCost : undefined,
+          supplier: manualIsExternal ? manualSupplier : undefined,
+          notes: manualNotes
+      };
       addItemToList(newItem);
-      setNewMatInventoryId(''); setNewMatName(''); setNewMatType(''); setNewMatQty(1); setNewMatNotes('');
+      setManualName(''); setManualType(''); setManualQty(1); setManualNotes(''); setManualCost(0); setManualSupplier('');
   };
 
-  const handleQuickItemToggle = (qItem: typeof QUICK_ITEMS[0]) => {
+  // --- DYNAMIC QUICK ITEMS LOGIC ---
+  const activeLocationData = useMemo(() => {
+      if (!activeJob || !activeJob.locationId) return null;
+      return locations.find(l => l.id === activeJob.locationId);
+  }, [activeJob, locations]);
+
+  const quickItems = useMemo(() => {
+      const items = [...BASE_QUICK_ITEMS];
+      // Logic: If Location Network is unavailable, suggest Router 5G
+      if (activeLocationData?.network.isUnavailable) {
+          items.push({ name: 'Router 5G', category: 'Rete', type: 'Network' });
+      }
+      return items;
+  }, [activeLocationData]);
+
+  const handleQuickItemToggle = (qItem: typeof BASE_QUICK_ITEMS[0]) => {
         if (!activeJob) return;
-        const existing = activeJob.materialList.find(m => m.name === qItem.name && !m.inventoryId);
-        if (existing) {
-            setActiveJob({ ...activeJob, materialList: activeJob.materialList.filter(m => m.id !== existing.id) });
-        } else {
-            const newItem: MaterialItem = {
-                id: Date.now().toString(), name: qItem.name, category: qItem.category, type: qItem.type, quantity: 1, isExternal: false, notes: 'Aggiunta rapida'
-            };
-            setActiveJob({ ...activeJob, materialList: [...activeJob.materialList, newItem] });
-        }
+        const newItem: MaterialItem = {
+            id: Date.now().toString(), name: qItem.name, category: qItem.category, type: qItem.type, quantity: 1, isExternal: false, notes: 'Aggiunta rapida'
+        };
+        addItemToList(newItem);
+        // Feedback loop
+        const mockId = `quick-${qItem.name}`;
+        setAddedFeedback(prev => ({...prev, [mockId]: true}));
+        setTimeout(() => { setAddedFeedback(prev => ({...prev, [mockId]: false})); }, 1000);
   };
 
-  const toggleCrewAssignment = (crewId: string) => {
+  // UPDATED: Toggle Crew in specific phase
+  const toggleCrewInPhase = (phaseId: string, crewId: string) => {
     if (!activeJob) return;
-    const current = activeJob.assignedCrew;
-    const updated = current.includes(crewId) ? current.filter(id => id !== crewId) : [...current, crewId];
-    setActiveJob({ ...activeJob, assignedCrew: updated });
+
+    // 1. Update the specific phase
+    const updatedPhases = activeJob.phases.map(p => {
+        if (p.id === phaseId) {
+            const currentAssignments = p.assignedCrew || [];
+            const newAssignments = currentAssignments.includes(crewId) 
+                ? currentAssignments.filter(id => id !== crewId) 
+                : [...currentAssignments, crewId];
+            return { ...p, assignedCrew: newAssignments };
+        }
+        return p;
+    });
+
+    // 2. Recalculate top-level assignedCrew (Union of all phase assignments)
+    // This maintains backward compatibility with dashboard filters
+    const allAssignedCrew = new Set<string>();
+    updatedPhases.forEach(p => {
+        if (p.assignedCrew) {
+            p.assignedCrew.forEach(id => allAssignedCrew.add(id));
+        }
+    });
+
+    setActiveJob({ 
+        ...activeJob, 
+        phases: updatedPhases,
+        assignedCrew: Array.from(allAssignedCrew)
+    });
   };
 
   const handleLocationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -209,7 +261,7 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
 
   const addPhase = () => {
       if (!activeJob) return;
-      const newPhase: JobPhase = { id: Date.now().toString(), name: '', start: `${activeJob.startDate}T09:00`, end: `${activeJob.startDate}T18:00` };
+      const newPhase: JobPhase = { id: Date.now().toString(), name: '', start: `${activeJob.startDate}T09:00`, end: `${activeJob.startDate}T18:00`, assignedCrew: [] };
       setActiveJob({...activeJob, phases: [...activeJob.phases, newPhase]});
   };
 
@@ -240,12 +292,8 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
           return matchSearch && matchCat && matchType;
       });
   }, [inventory, invSearchTerm, invCategoryFilter, invTypeFilter]);
-  
-  const catalogItems = useMemo(() => {
-      return inventory.filter(i => catalogCategory === 'ALL' || i.category === catalogCategory);
-  }, [inventory, catalogCategory]);
 
-  const handleCatalogAdd = (item: InventoryItem) => {
+  const handleInventoryAdd = (item: InventoryItem) => {
       if (!activeJob) return;
       const newItem: MaterialItem = { id: Date.now().toString(), inventoryId: item.id, name: item.name, category: item.category, type: item.type, quantity: 1, isExternal: false };
       addItemToList(newItem);
@@ -329,11 +377,6 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
       return tree;
   }, [jobs]);
 
-  const activeLocationData = useMemo(() => {
-      if (!activeJob || !activeJob.locationId) return null;
-      return locations.find(l => l.id === activeJob.locationId);
-  }, [activeJob, locations]);
-
   const getStatusBadge = (status: JobStatus) => {
       switch(status) {
           case JobStatus.DRAFT: return <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-gray-600 text-gray-200">Bozza</span>;
@@ -345,13 +388,22 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
   }
 
   const calculateBudget = () => {
-      if (!activeJob) return { freelance: 0, materials: 0, vehicles: 0, expenses: 0, total: 0 };
+      if (!activeJob) return { freelance: 0, materials: 0, vehicles: 0, expenses: 0, internalTravel: 0, total: 0 };
       
       const days = Math.max(1, Math.ceil((new Date(activeJob.endDate).getTime() - new Date(activeJob.startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1);
+      
+      // Freelance Costs
       const freelanceCost = activeJob.assignedCrew.reduce((acc, crewId) => {
           const member = crew.find(c => c.id === crewId);
-          return acc + (member && member.type === 'Esterno' ? member.dailyRate * days : 0);
+          return acc + (member && member.type === CrewType.FREELANCE ? member.dailyRate * days : 0);
       }, 0);
+
+      // Internal Travel Costs (Per Diem)
+      const perDiemRate = settings?.defaultDailyIndemnity || 50;
+      const internalTravelCost = activeJob.isAwayJob ? activeJob.assignedCrew.reduce((acc, crewId) => {
+          const member = crew.find(c => c.id === crewId);
+          return acc + (member && member.type === CrewType.INTERNAL ? perDiemRate * days : 0);
+      }, 0) : 0;
 
       const materialCost = activeJob.materialList.reduce((acc, m) => acc + (m.isExternal ? (m.cost || 0) * m.quantity : 0), 0);
       const vehicleCost = activeJob.vehicles.reduce((acc, v) => acc + (v.isRental ? (v.cost || 0) : 0), 0);
@@ -362,10 +414,11 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
 
       return {
           freelance: freelanceCost,
+          internalTravel: internalTravelCost,
           materials: materialCost,
           vehicles: vehicleCost,
           expenses: expensesCost,
-          total: freelanceCost + materialCost + vehicleCost + expensesCost
+          total: freelanceCost + internalTravelCost + materialCost + vehicleCost + expensesCost
       };
   };
 
@@ -385,120 +438,174 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
         <div className="flex border-b border-glr-700 mb-4 shrink-0 overflow-x-auto no-print">
              {['DETAILS', 'LOCATION', 'PHASES', 'MATERIAL', 'CREW', 'PLAN', ...(showBudget ? ['BUDGET'] : [])].map(tab => (
                  <button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-4 py-2 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${activeTab === tab ? 'border-glr-accent text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>
-                     {tab === 'DETAILS' ? 'Dettagli Evento' : tab === 'LOCATION' ? 'Scheda Location' : tab === 'PHASES' ? 'Fasi & Logistica' : tab === 'MATERIAL' ? 'Materiale' : tab === 'CREW' ? 'Crew' : tab === 'PLAN' ? 'Piano Produzione' : 'Budget'}
+                     {tab === 'DETAILS' ? 'Dettagli Evento' : tab === 'LOCATION' ? 'Scheda Location' : tab === 'PHASES' ? 'Fasi & Logistica' : tab === 'MATERIAL' ? 'Materiale' : tab === 'CREW' ? 'Crew' : tab === 'PLAN' ? 'Piano di Produzione' : 'Budget'}
                  </button>
              ))}
         </div>
 
         <div className="overflow-y-auto flex-1 pr-2">
             {activeTab === 'DETAILS' && (
-                <div className="space-y-4 max-w-4xl">
-                    {/* MAIN INFO */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="col-span-2">
-                            <label className="block text-xs text-gray-400 mb-1 uppercase font-bold">Titolo Evento</label>
-                            <input disabled={!canEdit} type="text" value={activeJob.title} onChange={e => setActiveJob({...activeJob, title: e.target.value})} className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white font-bold text-lg" />
-                        </div>
-                        <div>
-                            <label className="block text-xs text-gray-400 mb-1 uppercase">Committente</label>
-                            <input disabled={!canEdit} type="text" value={activeJob.client} onChange={e => setActiveJob({...activeJob, client: e.target.value})} className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white" placeholder="Azienda / Cliente Principale" />
-                        </div>
-                        <div>
-                            <label className="block text-xs text-gray-400 mb-1 uppercase">Cliente Interno</label>
-                            <input disabled={!canEdit} type="text" value={activeJob.internalClient || ''} onChange={e => setActiveJob({...activeJob, internalClient: e.target.value})} className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white" placeholder="Rif. Interno / Agenzia" />
-                        </div>
-                    </div>
-
-                    {/* CONTACT PERSON SECTION */}
-                    <div className="bg-glr-900/30 p-4 rounded border border-glr-700/50">
-                        <h4 className="text-xs font-bold text-glr-accent uppercase mb-3 flex items-center gap-2"><User size={14}/> Referente in loco</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <label className="block text-[10px] text-gray-500 mb-1 uppercase">Nome & Cognome</label>
-                                <input disabled={!canEdit} type="text" value={activeJob.contactName || ''} onChange={e => setActiveJob({...activeJob, contactName: e.target.value})} className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white text-sm" />
-                            </div>
-                            <div>
-                                <label className="block text-[10px] text-gray-500 mb-1 uppercase">Telefono</label>
-                                <div className="flex items-center gap-2">
-                                    <Phone size={14} className="text-gray-600"/>
-                                    <input disabled={!canEdit} type="text" value={activeJob.contactPhone || ''} onChange={e => setActiveJob({...activeJob, contactPhone: e.target.value})} className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white text-sm" />
+                <div className="space-y-6 w-full">
+                    {/* FULL WIDTH DETAILS GRID */}
+                    <div className="grid grid-cols-12 gap-6">
+                        
+                        {/* LEFT: MAIN INFO (Col 8) */}
+                        <div className="col-span-12 lg:col-span-8 space-y-6">
+                             {/* TITLE ROW */}
+                            <div className="bg-glr-900 p-6 rounded-xl border border-glr-700 shadow-md">
+                                <label className="block text-xs text-glr-accent mb-2 uppercase font-bold tracking-wider">Titolo Evento (Nome Scheda)</label>
+                                <input disabled={!canEdit} type="text" value={activeJob.title} onChange={e => setActiveJob({...activeJob, title: e.target.value})} className="w-full bg-transparent border-b-2 border-glr-700 focus:border-glr-accent text-white font-bold text-3xl outline-none placeholder-gray-600 transition-colors" placeholder="Es. Convention Annuale 2024" />
+                                
+                                {/* DEPARTMENTS MULTI-SELECT */}
+                                <div className="mt-4 pt-4 border-t border-glr-800">
+                                    <label className="block text-xs text-gray-400 mb-2 uppercase font-bold">Settori Coinvolti</label>
+                                    <div className="flex gap-2">
+                                        {['Audio', 'Video', 'Luci'].map(d => (
+                                            <button 
+                                                key={d}
+                                                onClick={() => canEdit && toggleDepartment(d)}
+                                                className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-colors ${
+                                                    activeJob.departments.includes(d) 
+                                                        ? 'bg-glr-accent text-glr-900 border-glr-accent' 
+                                                        : 'bg-glr-800 text-gray-400 border-glr-600 hover:border-gray-400'
+                                                }`}
+                                            >
+                                                {activeJob.departments.includes(d) && <Check size={12} className="inline mr-1"/>}
+                                                {d}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
-                            <div>
-                                <label className="block text-[10px] text-gray-500 mb-1 uppercase">Email</label>
-                                <div className="flex items-center gap-2">
-                                    <Mail size={14} className="text-gray-600"/>
-                                    <input disabled={!canEdit} type="text" value={activeJob.contactEmail || ''} onChange={e => setActiveJob({...activeJob, contactEmail: e.target.value})} className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white text-sm" />
+
+                            {/* CLIENTS ROW */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="bg-glr-900 p-5 rounded-xl border border-glr-700">
+                                    <label className="block text-xs text-gray-400 mb-1 uppercase font-bold">Committente Principale</label>
+                                    <div className="flex items-center gap-3">
+                                        <Briefcase size={20} className="text-gray-500"/>
+                                        <input disabled={!canEdit} type="text" value={activeJob.client} onChange={e => setActiveJob({...activeJob, client: e.target.value})} className="w-full bg-transparent border-b border-glr-700 focus:border-glr-accent text-white text-lg font-medium outline-none" placeholder="Azienda / Cliente" />
+                                    </div>
+                                </div>
+                                <div className="bg-glr-900 p-5 rounded-xl border border-glr-700">
+                                    <label className="block text-xs text-gray-400 mb-1 uppercase font-bold">Cliente Interno / Agenzia</label>
+                                    <div className="flex items-center gap-3">
+                                        <User size={20} className="text-gray-500"/>
+                                        <input disabled={!canEdit} type="text" value={activeJob.internalClient || ''} onChange={e => setActiveJob({...activeJob, internalClient: e.target.value})} className="w-full bg-transparent border-b border-glr-700 focus:border-glr-accent text-white text-lg font-medium outline-none" placeholder="Opzionale" />
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-
-                    {/* DATES & STATUS */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label className="block text-xs text-gray-400 mb-1 uppercase">Stato Lavoro</label>
-                            <select disabled={!canEdit} value={activeJob.status} onChange={e => setActiveJob({...activeJob, status: e.target.value as JobStatus})} className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white">
-                                {Object.values(JobStatus).map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                             <label className="block text-xs text-gray-400 mb-1 uppercase">Inizio Evento</label>
-                             <input disabled={!canEdit} type="date" value={activeJob.startDate} onChange={e => setActiveJob({...activeJob, startDate: e.target.value})} className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white" />
-                        </div>
-                        <div>
-                             <label className="block text-xs text-gray-400 mb-1 uppercase">Fine Evento</label>
-                             <input disabled={!canEdit} type="date" value={activeJob.endDate} onChange={e => setActiveJob({...activeJob, endDate: e.target.value})} className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white" />
-                        </div>
-                    </div>
-
-                    {/* LOCATION */}
-                    <div>
-                        <label className="block text-xs text-gray-400 mb-1 uppercase">Location</label>
-                        <div className="flex gap-2">
-                            <select disabled={!canEdit} value={activeJob.locationId || "custom"} onChange={handleLocationChange} className="w-1/3 bg-glr-900 border border-glr-700 rounded p-2 text-white text-sm">
-                                <option value="custom">Manuale...</option>{locations.map(l => (<option key={l.id} value={l.id}>{l.name}</option>))}
-                            </select>
-                            <input disabled={!canEdit} type="text" value={activeJob.location} onChange={e => setActiveJob({...activeJob, location: e.target.value, locationId: undefined})} placeholder="Indirizzo" className="w-2/3 bg-glr-900 border border-glr-700 rounded p-2 text-white" />
-                        </div>
-                    </div>
-
-                    {/* EXTRA DETAILS GRID (Subcontracting & Outfit) */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Subcontracting */}
-                        <div className="bg-glr-900/30 p-3 rounded border border-glr-700/50 flex flex-col gap-2">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input disabled={!canEdit} type="checkbox" checked={activeJob.isSubcontracted} onChange={e => setActiveJob({...activeJob, isSubcontracted: e.target.checked})} className="rounded bg-glr-800 border-glr-600 text-glr-accent"/>
-                                <span className="text-sm text-white font-bold flex items-center gap-2"><BriefcaseIcon size={14}/> Lavoro in Subappalto</span>
-                            </label>
-                            {activeJob.isSubcontracted && (
-                                <input disabled={!canEdit} type="text" placeholder="Nome Azienda Subappaltatrice" value={activeJob.subcontractorName || ''} onChange={e => setActiveJob({...activeJob, subcontractorName: e.target.value})} className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white text-sm mt-1" />
-                            )}
-                        </div>
-
-                        {/* Outfit */}
-                        <div className="bg-glr-900/30 p-3 rounded border border-glr-700/50">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-xs font-bold text-gray-400 uppercase flex items-center gap-2"><Shirt size={14}/> Outfit Richiesto</span>
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <input disabled={!canEdit} type="checkbox" checked={activeJob.outfitNoLogo} onChange={e => setActiveJob({...activeJob, outfitNoLogo: e.target.checked})} className="rounded bg-glr-800 border-glr-600 text-red-500"/>
-                                    <span className="text-[10px] font-bold text-red-300 border border-red-900/50 bg-red-900/20 px-1.5 py-0.5 rounded">NO LOGO</span>
+                            
+                            {/* COLLABORATIONS & PARTNERS */}
+                            <div className="bg-glr-900 p-5 rounded-xl border border-glr-700">
+                                <label className="block text-xs text-gray-400 mb-3 uppercase font-bold flex items-center gap-2">
+                                    <Handshake size={14}/> Partner & Collaborazioni
                                 </label>
-                            </div>
-                            <select disabled={!canEdit} value={activeJob.outfit || ''} onChange={e => setActiveJob({...activeJob, outfit: e.target.value as OutfitType})} className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white text-sm">
-                                <option value="">-- Seleziona --</option>
-                                <option value="Polo">Polo</option>
-                                <option value="Camicia">Camicia</option>
-                                <option value="Felpa">Felpa</option>
-                                <option value="Abito">Abito Scuro</option>
-                            </select>
-                        </div>
-                    </div>
+                                <div className="space-y-4">
+                                    {/* SUBCONTRACT */}
+                                    <div className="flex items-start gap-3">
+                                        <label className="flex items-center gap-2 cursor-pointer mt-1">
+                                            <input disabled={!canEdit} type="checkbox" checked={activeJob.isSubcontracted} onChange={e => setActiveJob({...activeJob, isSubcontracted: e.target.checked})} className="rounded bg-glr-800 border-glr-600 text-glr-accent"/>
+                                            <span className="text-sm font-bold text-white">Subappalto</span>
+                                        </label>
+                                        {activeJob.isSubcontracted && (
+                                            <div className="flex-1 animate-fade-in">
+                                                <input disabled={!canEdit} type="text" value={activeJob.subcontractorName || ''} onChange={e => setActiveJob({...activeJob, subcontractorName: e.target.value})} className="w-full bg-glr-800 border border-glr-600 rounded p-1.5 text-white text-sm" placeholder="Azienda Subappalto"/>
+                                            </div>
+                                        )}
+                                    </div>
 
-                    {/* NOTES */}
-                    <div>
-                         <label className="block text-xs text-gray-400 mb-1 uppercase">Descrizione / Note Interne</label>
-                         <textarea disabled={!canEdit} value={activeJob.description} onChange={e => setActiveJob({...activeJob, description: e.target.value})} className="w-full bg-glr-900 border border-glr-700 rounded p-2 text-white h-24 text-sm" />
+                                    {/* OTHER SERVICES */}
+                                    <div className="flex flex-col gap-3 pt-2 border-t border-glr-800">
+                                         <label className="flex items-center gap-2 cursor-pointer w-fit">
+                                            <input disabled={!canEdit} type="checkbox" checked={activeJob.hasExternalService} onChange={e => setActiveJob({...activeJob, hasExternalService: e.target.checked})} className="rounded bg-glr-800 border-glr-600 text-glr-accent"/>
+                                            <span className="text-sm font-bold text-white">Altri Service Coinvolti</span>
+                                        </label>
+                                        {activeJob.hasExternalService && (
+                                            <div className="flex gap-4 animate-fade-in pl-6">
+                                                <div className="flex-1">
+                                                    <input disabled={!canEdit} type="text" value={activeJob.externalServiceName || ''} onChange={e => setActiveJob({...activeJob, externalServiceName: e.target.value})} className="w-full bg-glr-800 border border-glr-600 rounded p-1.5 text-white text-sm" placeholder="Nome Service"/>
+                                                </div>
+                                                <div className="w-40">
+                                                    <select disabled={!canEdit} value={activeJob.externalServiceRole || ''} onChange={e => setActiveJob({...activeJob, externalServiceRole: e.target.value})} className="w-full bg-glr-800 border border-glr-600 rounded p-1.5 text-white text-sm">
+                                                        <option value="">Settore...</option>
+                                                        <option value="Audio">Audio</option>
+                                                        <option value="Video">Video</option>
+                                                        <option value="Luci">Luci</option>
+                                                        <option value="Strutture">Strutture</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* LOCATION SELECTOR FULL */}
+                            <div className="bg-glr-900 p-5 rounded-xl border border-glr-700">
+                                <label className="block text-xs text-gray-400 mb-2 uppercase font-bold">Location & Indirizzo</label>
+                                <div className="flex gap-4">
+                                    <select disabled={!canEdit} value={activeJob.locationId || "custom"} onChange={handleLocationChange} className="w-1/3 bg-glr-800 border border-glr-600 rounded-lg p-3 text-white text-sm font-bold shadow-sm">
+                                        <option value="custom">Manuale / Custom...</option>{locations.map(l => (<option key={l.id} value={l.id}>{l.name}</option>))}
+                                    </select>
+                                    <div className="flex-1 relative">
+                                        <MapPin size={18} className="absolute left-3 top-3.5 text-gray-400"/>
+                                        <input disabled={!canEdit} type="text" value={activeJob.location} onChange={e => setActiveJob({...activeJob, location: e.target.value, locationId: undefined})} placeholder="Indirizzo Completo" className="w-full bg-glr-800 border border-glr-600 rounded-lg pl-10 pr-3 py-3 text-white text-sm" />
+                                    </div>
+                                </div>
+                            </div>
+
+                             {/* NOTES FULL */}
+                             <div className="bg-glr-900 p-5 rounded-xl border border-glr-700">
+                                 <label className="block text-xs text-gray-400 mb-2 uppercase font-bold">Descrizione Operativa & Note</label>
+                                 <textarea disabled={!canEdit} value={activeJob.description} onChange={e => setActiveJob({...activeJob, description: e.target.value})} className="w-full bg-glr-800 border border-glr-600 rounded p-4 text-white h-40 text-sm leading-relaxed resize-none focus:border-glr-accent outline-none" placeholder="Dettagli aggiuntivi sull'evento, orari di massima, necessità particolari..." />
+                            </div>
+                        </div>
+                        
+                        {/* RIGHT: META INFO (Col 4) */}
+                        <div className="col-span-12 lg:col-span-4 space-y-6">
+                            {/* STATUS CARD */}
+                            <div className="bg-glr-800 p-5 rounded-xl border border-glr-600 shadow-lg space-y-4">
+                                 <div>
+                                    <label className="block text-xs text-gray-400 mb-1 uppercase font-bold">Stato Lavoro</label>
+                                    <select disabled={!canEdit} value={activeJob.status} onChange={e => setActiveJob({...activeJob, status: e.target.value as JobStatus})} className="w-full bg-glr-900 border border-glr-500 rounded p-3 text-white font-bold text-base focus:ring-2 ring-glr-accent outline-none">
+                                        {Object.values(JobStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                 </div>
+                                 <div className="space-y-3 pt-2">
+                                    <div>
+                                         <label className="block text-xs text-gray-400 mb-1 uppercase font-bold">Inizio Evento</label>
+                                         <input disabled={!canEdit} type="date" value={activeJob.startDate} onChange={e => setActiveJob({...activeJob, startDate: e.target.value})} className="w-full bg-glr-900 border border-glr-600 rounded p-2 text-white" />
+                                    </div>
+                                    <div>
+                                         <label className="block text-xs text-gray-400 mb-1 uppercase font-bold">Fine Evento</label>
+                                         <input disabled={!canEdit} type="date" value={activeJob.endDate} onChange={e => setActiveJob({...activeJob, endDate: e.target.value})} className="w-full bg-glr-900 border border-glr-600 rounded p-2 text-white" />
+                                    </div>
+                                 </div>
+                                 <div className="pt-2 border-t border-glr-700 mt-2">
+                                     <label className="flex items-center gap-3 cursor-pointer bg-blue-900/20 p-3 rounded border border-blue-800/50 hover:bg-blue-900/30 transition-colors">
+                                        <input disabled={!canEdit} type="checkbox" checked={activeJob.isAwayJob} onChange={e => setActiveJob({...activeJob, isAwayJob: e.target.checked})} className="rounded bg-glr-800 border-glr-600 text-blue-500 w-5 h-5"/>
+                                        <span className="text-sm text-blue-300 font-bold flex items-center gap-2"><Plane size={16}/> Trasferta / Away Job</span>
+                                     </label>
+                                 </div>
+                            </div>
+
+                            {/* REFERENTE */}
+                            <div className="bg-glr-900/50 p-5 rounded-xl border border-glr-700">
+                                <h4 className="text-xs font-bold text-glr-accent uppercase mb-4 flex items-center gap-2 border-b border-glr-700/50 pb-2"><User size={14}/> Referente Lavoro</h4>
+                                <div className="space-y-3">
+                                    <input disabled={!canEdit} type="text" value={activeJob.contactName || ''} onChange={e => setActiveJob({...activeJob, contactName: e.target.value})} className="w-full bg-glr-800 border border-glr-700 rounded p-2 text-white text-sm" placeholder="Nome Cognome" />
+                                    <div className="flex items-center gap-2 relative">
+                                        <Phone size={14} className="absolute left-3 text-gray-500"/>
+                                        <input disabled={!canEdit} type="text" value={activeJob.contactPhone || ''} onChange={e => setActiveJob({...activeJob, contactPhone: e.target.value})} className="w-full bg-glr-800 border border-glr-700 rounded p-2 pl-9 text-white text-sm" placeholder="Telefono" />
+                                    </div>
+                                    <div className="flex items-center gap-2 relative">
+                                        <Mail size={14} className="absolute left-3 text-gray-500"/>
+                                        <input disabled={!canEdit} type="text" value={activeJob.contactEmail || ''} onChange={e => setActiveJob({...activeJob, contactEmail: e.target.value})} className="w-full bg-glr-800 border border-glr-700 rounded p-2 pl-9 text-white text-sm" placeholder="Email" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
@@ -509,15 +616,26 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
                         <div className="space-y-6 animate-fade-in">
                             {/* GENERAL & ACCESS */}
                             <div className="bg-glr-900/50 p-4 rounded-lg border border-glr-700">
-                                <h3 className="text-glr-accent font-bold uppercase text-sm mb-3 flex items-center gap-2"><MapPin size={16}/> Accesso & Contatti</h3>
+                                <div className="flex justify-between items-start mb-4">
+                                    <h3 className="text-glr-accent font-bold uppercase text-sm flex items-center gap-2"><MapPin size={16}/> Accesso & Contatti</h3>
+                                    {/* ROUTE BUTTON */}
+                                    <a 
+                                        href={getRouteLink(activeLocationData.address)} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-1.5 rounded flex items-center gap-2 transition-colors"
+                                    >
+                                        <Navigation size={14}/> Calcola Percorso da Sede
+                                    </a>
+                                </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <p className="text-white font-bold text-lg mb-1">{activeLocationData.name}</p>
                                         <p className="text-gray-400 text-sm mb-2">{activeLocationData.address}</p>
-                                        {activeLocationData.mapsLink && <a href={activeLocationData.mapsLink} target="_blank" className="text-blue-400 text-xs hover:underline">Vedi su Maps</a>}
+                                        {activeLocationData.mapsLink && <a href={activeLocationData.mapsLink} target="_blank" className="text-blue-400 text-xs hover:underline">Vedi posizione esatta (Maps)</a>}
                                     </div>
                                     <div className="text-sm space-y-1">
-                                        <p><span className="text-gray-500">Referente:</span> <span className="text-white font-bold">{activeLocationData.contactName}</span></p>
+                                        <p><span className="text-gray-500">Referente Location:</span> <span className="text-white font-bold">{activeLocationData.contactName}</span></p>
                                         <p><span className="text-gray-500">Telefono:</span> <span className="text-white font-bold">{activeLocationData.contactPhone}</span></p>
                                         <p><span className="text-gray-500">Orari:</span> <span className="text-white">{activeLocationData.accessHours}</span></p>
                                         <p><span className="text-gray-500">ZTL:</span> <span className={activeLocationData.isZtl ? 'text-red-400 font-bold' : 'text-green-400'}>{activeLocationData.isZtl ? 'ATTIVA' : 'NO'}</span></p>
@@ -559,7 +677,7 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                  <div className="bg-glr-900/50 p-4 rounded-lg border border-glr-700">
                                     <h3 className="text-glr-accent font-bold uppercase text-sm mb-3 flex items-center gap-2"><Network size={16}/> Rete & IT</h3>
-                                    {activeLocationData.network.isUnavailable ? <p className="text-red-400 text-sm">Non Disponibile</p> : (
+                                    {activeLocationData.network.isUnavailable ? <p className="text-red-400 text-sm font-bold flex items-center gap-2"><WifiOff size={16}/> Non Disponibile</p> : (
                                         <div className="space-y-2 text-sm">
                                             <div className="flex gap-2">
                                                 {activeLocationData.network.hasWired && <span className="text-green-400">Cablata</span>}
@@ -581,12 +699,35 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
                                  </div>
                             </div>
                         </div>
-                    ) : <p className="text-center text-gray-500 py-10">Nessuna location selezionata.</p>}
+                    ) : <p className="text-center text-gray-500 py-10">Nessuna location selezionata. Torna ai "Dettagli Evento" per selezionarne una o inserire un indirizzo manuale.</p>}
                 </div>
             )}
 
             {activeTab === 'PHASES' && (
                 <div className="space-y-8 animate-fade-in">
+                     {/* HOTEL & HOSPITALITY (Only if Away Job) */}
+                     {activeJob.isAwayJob && (
+                         <div className="bg-blue-900/20 p-4 rounded-xl border border-blue-800/50 mb-6">
+                             <h3 className="text-blue-300 font-bold flex items-center gap-2 text-lg mb-4"><Hotel size={20}/> Soggiorno & Hotel</h3>
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                 <div>
+                                     <label className="block text-xs text-blue-200 mb-1 font-bold">Nome Hotel / Struttura</label>
+                                     <div className="flex items-center gap-2">
+                                         <BedDouble size={16} className="text-blue-400"/>
+                                         <input disabled={!canEdit} type="text" value={activeJob.hotelName || ''} onChange={e => setActiveJob({...activeJob, hotelName: e.target.value})} className="w-full bg-glr-900 border border-blue-800 rounded p-2 text-white text-sm" placeholder="Es. Hotel Da Vinci"/>
+                                     </div>
+                                 </div>
+                                 <div>
+                                     <label className="block text-xs text-blue-200 mb-1 font-bold">Indirizzo</label>
+                                     <div className="flex items-center gap-2">
+                                         <MapPin size={16} className="text-blue-400"/>
+                                         <input disabled={!canEdit} type="text" value={activeJob.hotelAddress || ''} onChange={e => setActiveJob({...activeJob, hotelAddress: e.target.value})} className="w-full bg-glr-900 border border-blue-800 rounded p-2 text-white text-sm" placeholder="Via dei Fiori 2, Roma"/>
+                                     </div>
+                                 </div>
+                             </div>
+                         </div>
+                     )}
+
                      {/* PHASES */}
                      <div className="bg-glr-900/30 p-4 rounded-xl border border-glr-700/50">
                         <div className="flex justify-between items-center mb-4">
@@ -687,77 +828,166 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
                             {activeJob.vehicles.length === 0 && <p className="col-span-full text-center text-gray-500 py-4 italic">Nessun mezzo assegnato.</p>}
                         </div>
                      </div>
+
+                     {/* PORTERAGE (Facchinaggio) */}
+                     <div className="bg-glr-900/30 p-4 rounded-xl border border-glr-700/50">
+                        <div className="flex items-center gap-3 mb-4">
+                             <h3 className="text-white font-bold flex items-center gap-2 text-lg"><Users size={20} className="text-glr-accent"/> Gestione Facchinaggio</h3>
+                        </div>
+                        <label className="flex items-center gap-2 cursor-pointer w-fit mb-4">
+                             <input disabled={!canEdit} type="checkbox" checked={activeJob.hasPorterage} onChange={e => setActiveJob({...activeJob, hasPorterage: e.target.checked})} className="rounded bg-glr-800 border-glr-600 text-glr-accent w-5 h-5"/>
+                             <span className="text-sm font-bold text-white">Servizio Facchinaggio Richiesto</span>
+                        </label>
+
+                        {activeJob.hasPorterage && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in bg-glr-800 border border-glr-700 p-4 rounded-lg">
+                                <div>
+                                    <label className="block text-xs text-gray-400 mb-1 uppercase font-bold">Cooperativa / Azienda</label>
+                                    <input disabled={!canEdit} type="text" value={activeJob.porterageAgency || ''} onChange={e => setActiveJob({...activeJob, porterageAgency: e.target.value})} className="w-full bg-glr-900 border border-glr-600 rounded p-2 text-white text-sm" placeholder="Nome Cooperativa"/>
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-gray-400 mb-1 uppercase font-bold">Data & Ora Convocazione</label>
+                                    <input disabled={!canEdit} type="datetime-local" value={activeJob.porterageTime || ''} onChange={e => setActiveJob({...activeJob, porterageTime: e.target.value})} className="w-full bg-glr-900 border border-glr-600 rounded p-2 text-white text-sm"/>
+                                </div>
+                            </div>
+                        )}
+                     </div>
                 </div>
             )}
 
             {activeTab === 'MATERIAL' && (
-                <div className="flex flex-col lg:flex-row gap-6 h-full">
-                    {/* LEFT COLUMN: INPUTS & QUICK ITEMS */}
+                <div className="flex flex-col md:flex-row gap-6 h-full overflow-hidden">
+                    
+                    {/* LEFT COLUMN: BROWSER & ADDER */}
                     {canEdit && (
-                        <div className="lg:w-1/3 flex flex-col gap-4">
-                            {/* Main Adder */}
-                            <div className="bg-glr-900 border border-glr-700 p-4 rounded-xl">
-                                <h4 className="text-white font-semibold mb-3 flex items-center gap-2"><Package size={16}/> Aggiungi Materiale</h4>
-                                
-                                <div className="flex gap-2 mb-3">
-                                    <button onClick={() => setIsCatalogOpen(true)} className="flex-1 bg-glr-accent text-glr-900 font-bold py-2 rounded hover:bg-amber-400 flex items-center justify-center gap-2 text-xs"><ClipboardCheck size={16}/> Catalogo</button>
-                                    <button onClick={() => setIsImportKitModalOpen(true)} className="flex-1 bg-blue-600 text-white font-bold py-2 rounded hover:bg-blue-500 flex items-center justify-center gap-2 text-xs"><ArrowDownCircle size={16}/> Importa Kit</button>
-                                </div>
+                        <div className="w-full md:w-1/2 flex flex-col gap-4 border-r border-glr-700 md:pr-4 overflow-hidden">
+                             {/* QUICK ITEMS ROW */}
+                             <div className="flex flex-wrap gap-2 mb-2 pb-2 shrink-0">
+                                {quickItems.map(qItem => {
+                                    const mockId = `quick-${qItem.name}`;
+                                    const justAdded = addedFeedback[mockId];
+                                    const isSpecial = qItem.name === 'Router 5G';
+                                    
+                                    return (
+                                        <button 
+                                            key={qItem.name} 
+                                            onClick={() => handleQuickItemToggle(qItem)} 
+                                            className={`text-xs px-3 py-2 rounded border flex items-center gap-2 transition-all shadow-sm
+                                                ${justAdded ? 'bg-green-600 text-white border-green-500 scale-105' : 
+                                                  isSpecial ? 'bg-orange-900/40 text-orange-200 border-orange-500 hover:bg-orange-800' :
+                                                  'bg-glr-900 border-glr-600 text-gray-300 hover:bg-glr-800 hover:text-white'}`}
+                                        >
+                                            {justAdded ? <Check size={14}/> : <Plus size={14}/>} {qItem.name}
+                                        </button>
+                                    )
+                                })}
+                                <button onClick={() => setIsImportKitModalOpen(true)} className="text-xs px-3 py-2 rounded border border-blue-700 bg-blue-900/20 text-blue-300 hover:bg-blue-900/40 whitespace-nowrap flex items-center gap-2">
+                                    <Box size={14}/> Importa Kit
+                                </button>
+                             </div>
 
-                                <div className="flex gap-2 mb-2">
-                                    <button onClick={() => setMatSource('INVENTORY')} className={`flex-1 text-xs py-1 rounded ${matSource === 'INVENTORY' ? 'bg-glr-700 text-white' : 'bg-glr-800 text-gray-400'}`}>Magazzino</button>
-                                    <button onClick={() => setMatSource('EXTERNAL')} className={`flex-1 text-xs py-1 rounded ${matSource === 'EXTERNAL' ? 'bg-orange-900/50 text-orange-200 border border-orange-800' : 'bg-glr-800 text-gray-400'}`}>Esterno</button>
-                                </div>
+                             {/* TOGGLE TABS */}
+                            <div className="flex bg-glr-900 p-1 rounded-lg shrink-0">
+                                 <button onClick={() => setAddMode('BROWSE')} className={`flex-1 py-2 rounded text-sm font-bold transition-all flex items-center justify-center gap-2 ${addMode === 'BROWSE' ? 'bg-glr-700 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}><Search size={16}/> Magazzino</button>
+                                 <button onClick={() => setAddMode('MANUAL')} className={`flex-1 py-2 rounded text-sm font-bold transition-all flex items-center justify-center gap-2 ${addMode === 'MANUAL' ? 'bg-glr-700 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}><Edit3 size={16}/> Manuale / Esterno</button>
+                            </div>
 
-                                {matSource === 'INVENTORY' ? (
-                                    <>
-                                        <div className="flex gap-2 mb-2">
-                                            <select value={invCategoryFilter} onChange={e => setInvCategoryFilter(e.target.value)} className="w-1/2 bg-glr-800 border border-glr-600 rounded text-white text-xs p-2"><option value="ALL">Cat: Tutte</option><option>Audio</option><option>Video</option><option>Luci</option><option>Cavi</option><option>Strutture</option></select>
-                                            <select value={invTypeFilter} onChange={e => setInvTypeFilter(e.target.value)} className="w-1/2 bg-glr-800 border border-glr-600 rounded text-white text-xs p-2">{availableTypes.map(t => <option key={t} value={t}>{t === 'ALL' ? 'Tipo: Tutti' : t}</option>)}</select>
+                            {addMode === 'BROWSE' ? (
+                                <div className="flex flex-col flex-1 overflow-hidden gap-3">
+                                    {/* FILTERS */}
+                                    <div className="flex gap-2 shrink-0">
+                                        <div className="w-1/2">
+                                            <select value={invCategoryFilter} onChange={e => setInvCategoryFilter(e.target.value)} className="w-full bg-glr-900 border border-glr-600 rounded text-white text-xs p-2 outline-none focus:border-glr-accent">
+                                                <option value="ALL">Cat: Tutte</option>
+                                                {['Audio', 'Video', 'Luci', 'Strutture', 'Cavi', 'Rete', 'Accessori'].map(c => <option key={c} value={c}>{c}</option>)}
+                                            </select>
                                         </div>
-                                        <select value={newMatInventoryId} onChange={e => setNewMatInventoryId(e.target.value)} className="w-full bg-glr-800 border border-glr-600 rounded px-2 py-2 text-white text-xs mb-2 outline-none">
-                                            <option value="">Seleziona Articolo...</option>
-                                            {filteredInventory.map(i => (<option key={i.id} value={i.id}>[{i.category}] {i.name} (Disp: {i.quantityOwned})</option>))}
-                                        </select>
-                                    </>
-                                ) : (
-                                    <div className="space-y-2 mb-2">
-                                        <input type="text" placeholder="Nome Materiale" value={newMatName} onChange={e => setNewMatName(e.target.value)} className="w-full bg-glr-800 border border-glr-600 rounded px-2 py-2 text-white text-sm" />
-                                        <input type="number" placeholder="Costo Noleggio €" value={newMatCost || ''} onChange={e => setNewMatCost(parseFloat(e.target.value))} className="w-full bg-glr-800 border border-glr-600 rounded px-2 py-2 text-white text-sm" />
+                                        <div className="w-1/2">
+                                            <select value={invTypeFilter} onChange={e => setInvTypeFilter(e.target.value)} className="w-full bg-glr-900 border border-glr-600 rounded text-white text-xs p-2 outline-none focus:border-glr-accent">
+                                                {availableTypes.map(t => <option key={t} value={t}>{t === 'ALL' ? 'Tipo: Tutti' : t}</option>)}
+                                            </select>
+                                        </div>
                                     </div>
-                                )}
-                                
-                                <input type="text" placeholder="Note opzionali..." value={newMatNotes} onChange={e => setNewMatNotes(e.target.value)} className="w-full bg-glr-800 border border-glr-600 rounded px-2 py-2 text-white text-xs mb-2"/>
-                                <div className="flex gap-2">
-                                    <input type="number" min="1" value={newMatQty} onChange={e => setNewMatQty(parseInt(e.target.value))} className="w-16 bg-glr-800 border border-glr-600 rounded px-2 py-2 text-white text-sm text-center" />
-                                    <button onClick={addManualMaterial} className="flex-1 bg-glr-700 hover:bg-white hover:text-glr-900 text-white px-3 py-1 rounded font-bold transition-colors"><Plus size={18} className="inline mr-1"/> Aggiungi</button>
-                                </div>
-                            </div>
+                                    
+                                    {/* SEARCH */}
+                                    <div className="relative shrink-0">
+                                        <Search size={16} className="absolute left-3 top-2.5 text-gray-400"/>
+                                        <input type="text" placeholder="Cerca articolo..." value={invSearchTerm} onChange={e => setInvSearchTerm(e.target.value)} className="w-full bg-glr-900 border border-glr-600 rounded pl-9 pr-3 py-2 text-white text-sm focus:border-glr-accent outline-none"/>
+                                    </div>
 
-                            {/* QUICK ITEMS SECTION */}
-                            <div className="bg-glr-900 border border-glr-700 p-4 rounded-xl">
-                                <h4 className="text-white font-semibold mb-3 flex items-center gap-2 text-xs uppercase"><Lightbulb size={14} className="text-glr-accent"/> Potrebbe servire</h4>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {QUICK_ITEMS.map((qItem) => {
-                                        const isAdded = activeJob.materialList.some(m => m.name === qItem.name);
-                                        // Logic to detect if Router 5G should flash
-                                        const isRouterNeeded = qItem.name === 'Router 5G' && activeLocationData?.network.isUnavailable && !isAdded;
-                                        
-                                        return (
-                                            <button key={qItem.name} onClick={() => handleQuickItemToggle(qItem)} 
-                                                className={`text-xs p-2 rounded border transition-all flex items-center justify-between ${isAdded ? 'bg-glr-accent text-glr-900 border-glr-accent font-bold' : 'bg-glr-800 text-gray-400 border-glr-700 hover:text-white'} ${isRouterNeeded ? 'animate-pulse border-red-500 bg-red-900/20 text-red-300 ring-1 ring-red-500' : ''}`}>
-                                                {qItem.name}
-                                                {isAdded && <Check size={12}/>}
-                                            </button>
-                                        )
-                                    })}
+                                    {/* LIST */}
+                                    <div className="flex-1 overflow-y-auto pr-1 space-y-2 custom-scrollbar">
+                                        {filteredInventory.map(item => {
+                                            const added = addedFeedback[item.id];
+                                            return (
+                                                <div key={item.id} onClick={() => handleInventoryAdd(item)} className="bg-glr-900 p-3 rounded border border-glr-700 cursor-pointer hover:border-glr-500 hover:bg-glr-800 transition-all group flex justify-between items-center relative">
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className="text-sm font-bold text-white truncate group-hover:text-glr-accent">{item.name}</span>
+                                                            <span className="text-[10px] text-gray-500 font-mono">Disp: {item.quantityOwned}</span>
+                                                        </div>
+                                                        <div className="flex gap-2 text-[10px] text-gray-500">
+                                                            <span className="bg-glr-950 px-1.5 py-0.5 rounded border border-glr-800">{item.category}</span>
+                                                            {item.type && <span className="opacity-70">• {item.type}</span>}
+                                                        </div>
+                                                    </div>
+                                                    <button className={`p-2 rounded-full transition-colors border ${added ? 'bg-green-600 text-white border-green-500' : 'bg-glr-950 text-green-500 hover:bg-green-500 hover:text-white border-glr-800 group-hover:border-green-500'}`}>
+                                                        {added ? <Check size={16}/> : <Plus size={16}/>}
+                                                    </button>
+                                                </div>
+                                            )
+                                        })}
+                                        {filteredInventory.length === 0 && <div className="text-center text-gray-500 py-10 italic">Nessun articolo trovato.</div>}
+                                    </div>
                                 </div>
-                            </div>
+                            ) : (
+                                <div className="bg-glr-900 border border-glr-700 p-4 rounded-xl space-y-4">
+                                    <div>
+                                        <label className="block text-xs text-gray-400 mb-1">Nome Materiale</label>
+                                        <input type="text" value={manualName} onChange={e => setManualName(e.target.value)} className="w-full bg-glr-800 border border-glr-600 rounded p-2 text-white text-sm focus:border-glr-accent outline-none" placeholder="Es. Noleggio Service Audio"/>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                         <div>
+                                            <label className="block text-xs text-gray-400 mb-1">Categoria</label>
+                                            <select value={manualCategory} onChange={e => setManualCategory(e.target.value)} className="w-full bg-glr-800 border border-glr-600 rounded text-white text-sm p-2"><option>Audio</option><option>Video</option><option>Luci</option><option>Cavi</option><option>Strutture</option><option>Altro</option></select>
+                                         </div>
+                                         <div>
+                                            <label className="block text-xs text-gray-400 mb-1">Tipologia</label>
+                                            <input type="text" value={manualType} onChange={e => setManualType(e.target.value)} className="w-full bg-glr-800 border border-glr-600 rounded p-2 text-white text-sm" placeholder="Es. Extra"/>
+                                         </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-xs text-gray-400 mb-1">Quantità</label>
+                                            <input type="number" min="1" value={manualQty} onChange={e => setManualQty(parseInt(e.target.value))} className="w-full bg-glr-800 border border-glr-600 rounded p-2 text-white text-sm"/>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-gray-400 mb-1">Costo Unit. (€)</label>
+                                            <input type="number" value={manualCost} onChange={e => setManualCost(parseFloat(e.target.value))} className="w-full bg-glr-800 border border-glr-600 rounded p-2 text-white text-sm" placeholder="0.00"/>
+                                        </div>
+                                    </div>
+                                     <label className="flex items-center gap-2 cursor-pointer bg-glr-800 p-2 rounded border border-glr-600">
+                                        <input type="checkbox" checked={manualIsExternal} onChange={e => setManualIsExternal(e.target.checked)} className="rounded bg-glr-900 border-glr-500 text-glr-accent"/>
+                                        <span className="text-sm text-gray-300">Noleggio Esterno</span>
+                                    </label>
+                                    {manualIsExternal && (
+                                        <div>
+                                            <label className="block text-xs text-gray-400 mb-1">Fornitore</label>
+                                            <input type="text" value={manualSupplier} onChange={e => setManualSupplier(e.target.value)} className="w-full bg-glr-800 border border-glr-600 rounded p-2 text-white text-sm" placeholder="Nome fornitore"/>
+                                        </div>
+                                    )}
+                                    <button onClick={handleAddManualItem} disabled={!manualName} className="w-full bg-glr-700 hover:bg-white hover:text-glr-900 text-white py-2 rounded font-bold transition-colors disabled:opacity-50 mt-2">Aggiungi Materiale</button>
+                                </div>
+                            )}
                         </div>
                     )}
 
                     {/* RIGHT COLUMN: LIST */}
-                    <div className="flex-1 bg-glr-900 rounded-xl border border-glr-700 overflow-hidden flex flex-col">
+                    <div className="w-full md:w-1/2 flex flex-col bg-glr-900 rounded-xl border border-glr-700 overflow-hidden">
+                        <div className="bg-glr-950 p-3 border-b border-glr-800 flex justify-between items-center shrink-0">
+                            <h4 className="text-sm font-bold text-gray-300 uppercase flex items-center gap-2"><Layers size={14}/> Lista Materiale</h4>
+                            <span className="bg-glr-800 text-glr-accent px-2 py-0.5 rounded text-xs font-mono">{activeJob.materialList.reduce((acc, i) => acc + i.quantity, 0)} Pz.</span>
+                        </div>
                         <div className="overflow-y-auto flex-1 p-2">
                         {['Audio', 'Video', 'Luci', 'Strutture', 'Cavi', 'Rete', 'Accessori', 'Altro'].map(cat => {
                             const items = materialByCategory[cat];
@@ -814,51 +1044,61 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
                             </div>
                         </div>
                     )}
-
-                    {/* CATALOG MODAL */}
-                    {isCatalogOpen && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 no-print">
-                            <div className="bg-glr-800 rounded-xl border border-glr-600 w-full max-w-5xl h-[80vh] flex flex-col shadow-2xl animate-fade-in">
-                                <div className="p-4 border-b border-glr-700 flex justify-between items-center shrink-0">
-                                    <h3 className="text-xl font-bold text-white flex items-center gap-2"><ClipboardCheck className="text-glr-accent"/> Catalogo Rapido</h3>
-                                    <button onClick={() => setIsCatalogOpen(false)} className="text-gray-400 hover:text-white"><X size={24}/></button>
-                                </div>
-                                <div className="p-4 bg-glr-900 border-b border-glr-700 flex gap-4 shrink-0 overflow-x-auto">
-                                     {['ALL', 'Audio', 'Video', 'Luci', 'Strutture', 'Cavi'].map(cat => (
-                                         <button key={cat} onClick={() => setCatalogCategory(cat)} className={`px-4 py-2 rounded text-sm font-bold whitespace-nowrap transition-colors ${catalogCategory === cat ? 'bg-glr-accent text-glr-900' : 'bg-glr-800 text-gray-400 hover:text-white'}`}>{cat === 'ALL' ? 'Tutto' : cat}</button>
-                                     ))}
-                                </div>
-                                <div className="flex-1 overflow-y-auto p-4">
-                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                                        {catalogItems.map(item => (
-                                            <div key={item.id} className="bg-glr-900 border border-glr-700 p-3 rounded hover:border-glr-500 cursor-pointer group relative" onClick={() => handleCatalogAdd(item)}>
-                                                <h4 className="text-sm font-bold text-white leading-tight mb-1">{item.name}</h4>
-                                                <div className="mt-2 text-[10px] text-gray-500">Disp: {item.quantityOwned}</div>
-                                                {addedFeedback[item.id] && (
-                                                    <div className="absolute inset-0 bg-green-600/90 flex items-center justify-center rounded animate-fade-in font-bold text-white">OK</div>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
             )}
             
             {activeTab === 'CREW' && (
-                <div>
-                     <h3 className="text-glr-accent font-semibold uppercase text-sm tracking-wider mb-4 flex items-center gap-2"><UserPlus size={16}/> Assegnazione Tecnici</h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                        {crew.map(c => {
-                            const isAssigned = activeJob.assignedCrew.includes(c.id);
-                            return (
-                                <button key={c.id} onClick={() => canEdit && toggleCrewAssignment(c.id)} disabled={!canEdit} className={`p-3 rounded border text-left transition-all ${isAssigned ? 'bg-green-600/20 border-green-500 text-green-100' : 'bg-glr-900 border-glr-700 text-gray-400'}`}>
-                                    <div className="flex justify-between items-center"><span className="font-bold text-sm">{c.name}</span>{isAssigned && <Check size={16} />}</div>
-                                </button>
-                            )
-                        })}
+                <div className="space-y-6">
+                    <h3 className="text-glr-accent font-semibold uppercase text-sm tracking-wider flex items-center gap-2"><UserPlus size={16}/> Assegnazione Tecnici per Fase</h3>
+                    <p className="text-gray-400 text-xs">Assegna i tecnici alle specifiche fasi operative dell'evento. I tecnici selezionati appariranno nel planning globale.</p>
+                    
+                    {activeJob.phases.length === 0 && (
+                        <div className="bg-red-900/20 border border-red-800 rounded p-4 text-center">
+                            <p className="text-red-300 text-sm font-bold mb-2">Nessuna Fase Operativa definita</p>
+                            <p className="text-gray-400 text-xs mb-3">Devi prima creare le fasi (es. Montaggio, Evento) nella sezione "Fasi & Logistica" per poter assegnare la crew.</p>
+                            <button onClick={() => setActiveTab('PHASES')} className="text-white bg-glr-700 px-3 py-1 rounded text-xs hover:bg-glr-600">Vai a Fasi</button>
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-1 gap-6">
+                        {activeJob.phases.map(phase => (
+                            <div key={phase.id} className="bg-glr-800 border border-glr-700 rounded-lg overflow-hidden">
+                                <div className="bg-glr-900/50 p-3 border-b border-glr-700 flex justify-between items-center">
+                                    <div className="flex items-center gap-2">
+                                        <div className="bg-glr-700 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">{activeJob.phases.indexOf(phase) + 1}</div>
+                                        <h4 className="font-bold text-white">{phase.name}</h4>
+                                    </div>
+                                    <div className="text-xs text-gray-400 flex items-center gap-2">
+                                        <Calendar size={12}/>
+                                        {new Date(phase.start).toLocaleDateString()} {new Date(phase.start).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {new Date(phase.end).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                    </div>
+                                </div>
+                                <div className="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                    {crew.map(c => {
+                                        const isAssigned = (phase.assignedCrew || []).includes(c.id);
+                                        return (
+                                            <button 
+                                                key={c.id} 
+                                                onClick={() => canEdit && toggleCrewInPhase(phase.id, c.id)} 
+                                                disabled={!canEdit} 
+                                                className={`p-4 h-24 rounded-lg border text-left transition-all relative flex flex-col justify-between shadow-md hover:shadow-lg hover:scale-[1.02] ${isAssigned ? 'bg-green-600/20 border-green-500' : 'bg-glr-900 border-glr-700 hover:border-gray-500'}`}
+                                            >
+                                                <div className="flex justify-between w-full">
+                                                     <div className="w-8 h-8 rounded-full bg-glr-800 flex items-center justify-center text-sm font-bold text-gray-300 border border-glr-600">
+                                                         {c.name.charAt(0)}
+                                                     </div>
+                                                     {isAssigned && <div className="bg-green-500 text-white rounded-full p-0.5"><Check size={14}/></div>}
+                                                </div>
+                                                <div>
+                                                    <span className={`block font-bold text-sm ${isAssigned ? 'text-white' : 'text-gray-400'}`}>{c.name}</span>
+                                                    <span className="text-[10px] text-gray-500 block truncate">{c.roles[0]}</span>
+                                                </div>
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             )}
@@ -871,6 +1111,10 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
                             <p className="text-xl font-bold text-white">€ {budget.freelance.toFixed(2)}</p>
                         </div>
                         <div className="bg-glr-900 p-4 rounded-lg border border-glr-700">
+                            <p className="text-xs text-gray-400 uppercase">Diaria Trasferta (Interni)</p>
+                            <p className="text-xl font-bold text-white">€ {budget.internalTravel.toFixed(2)}</p>
+                        </div>
+                        <div className="bg-glr-900 p-4 rounded-lg border border-glr-700">
                             <p className="text-xs text-gray-400 uppercase">Materiale Extra</p>
                             <p className="text-xl font-bold text-white">€ {budget.materials.toFixed(2)}</p>
                         </div>
@@ -878,13 +1122,13 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
                             <p className="text-xs text-gray-400 uppercase">Logistica & Spese</p>
                             <p className="text-xl font-bold text-white">€ {(budget.vehicles + budget.expenses).toFixed(2)}</p>
                         </div>
-                        <div className="bg-green-900/20 p-4 rounded-lg border border-green-800">
+                        <div className="bg-green-900/20 p-4 rounded-lg border border-green-800 col-span-full md:col-span-2 lg:col-span-4">
                             <p className="text-xs text-green-300 uppercase font-bold">Costo Totale Evento</p>
                             <p className="text-2xl font-bold text-green-400">€ {budget.total.toFixed(2)}</p>
                         </div>
                     </div>
                     <div className="bg-glr-900/50 p-4 rounded border border-glr-700 text-sm text-gray-400">
-                        <p className="flex gap-2"><Info size={16}/> <span>Il calcolo include: tariffe giornaliere dei freelance per la durata dell'evento, noleggio materiale esterno, costi furgoni a noleggio e rimborsi spese approvati collegati a questo lavoro.</span></p>
+                        <p className="flex gap-2"><Info size={16}/> <span>Il calcolo include: tariffe freelance, diarie trasferta interni (€{settings?.defaultDailyIndemnity || 50}/gg), materiale extra, noleggi e rimborsi spese.</span></p>
                     </div>
                 </div>
             )}
@@ -892,59 +1136,192 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
             {activeTab === 'PLAN' && (
                 <div className="space-y-6">
                     <div className="flex justify-between items-center no-print">
-                        <h3 className="text-white font-bold flex items-center gap-2"><ClipboardList size={18}/> Piano di Produzione</h3>
+                        <h3 className="text-white font-bold flex items-center gap-2"><ClipboardList size={18}/> Piano di Produzione & Call Sheet</h3>
                         <button onClick={handlePrint} className="bg-glr-accent text-glr-900 font-bold px-3 py-1.5 rounded text-sm flex items-center gap-2 hover:bg-amber-400"><Printer size={16}/> Stampa PDF</button>
                     </div>
                     
-                    <div className="bg-white text-black p-8 rounded shadow-lg min-h-[1000px] font-sans print-only">
-                        <div className="border-b-2 border-black pb-4 mb-6 flex justify-between items-start">
+                    {/* --- PRINTABLE CALL SHEET --- */}
+                    <div className="bg-white text-black p-8 rounded shadow-lg min-h-[1000px] font-sans print-only text-sm">
+                        
+                        {/* HEADER */}
+                        <div className="flex justify-between items-start border-b-2 border-black pb-4 mb-6">
                             <div className="flex items-center gap-4">
-                                {settings?.logoUrl ? <img src={settings.logoUrl} className="w-16 h-16 object-contain" alt="GLR" /> : <div className="w-16 h-16 bg-black text-white flex items-center justify-center font-bold text-2xl rounded">GLR</div>}
-                                <div><h1 className="text-xl font-bold uppercase tracking-tight text-black">{settings?.companyName || 'GLR Productions'}</h1></div>
+                                {settings?.logoUrl ? <img src={settings.logoUrl} className="w-20 h-20 object-contain" alt="Logo"/> : <div className="text-2xl font-bold text-black">GLR</div>}
+                                <div>
+                                    <h1 className="text-xl font-bold uppercase tracking-tight text-black">{settings?.companyName || 'GLR Productions'}</h1>
+                                    <p className="text-sm text-black">{settings?.address}</p>
+                                    <p className="text-sm text-black">P.IVA: {settings?.pIva}</p>
+                                </div>
                             </div>
-                            <div className="text-right"><h2 className="text-2xl font-bold uppercase tracking-tight text-black">Piano di Produzione</h2></div>
-                        </div>
-                        <div className="mb-8 p-4 bg-white border border-black rounded-lg">
-                            <div className="grid grid-cols-2 gap-y-2 gap-x-8 text-sm text-black">
-                                <div className="flex border-b border-gray-300 py-1"><span className="font-bold w-24">Titolo:</span> {activeJob.title}</div>
-                                <div className="flex border-b border-gray-300 py-1"><span className="font-bold w-24">Location:</span> {activeJob.location}</div>
+                            <div className="text-right">
+                                <h2 className="text-3xl font-bold uppercase tracking-tight text-black">Call Sheet</h2>
+                                <p className="text-sm font-bold mt-1 text-black">Stato: {activeJob.status}</p>
                             </div>
                         </div>
-                        <div className="mb-8">
-                            <h3 className="text-lg font-bold uppercase border-b-2 border-black mb-3 pb-1 text-black">Programma Orario</h3>
-                            <table className="w-full text-sm text-left border-collapse border border-black">
-                                <thead className="bg-gray-100 text-black uppercase font-bold text-xs">
-                                    <tr><th className="p-2 border border-black">Fase</th><th className="p-2 border border-black">Inizio</th><th className="p-2 border border-black">Fine</th></tr>
+
+                        {/* SECTION 1: EVENT INFO */}
+                        <div className="grid grid-cols-2 gap-8 mb-8">
+                            <div className="border border-black p-3">
+                                <h4 className="font-bold uppercase bg-gray-200 border-b border-black p-1 text-xs mb-2 text-black">Evento</h4>
+                                <p className="text-lg font-bold mb-1 text-black">{activeJob.title}</p>
+                                <p className="text-black"><strong>Cliente:</strong> {activeJob.client}</p>
+                                <p className="text-black"><strong>Date:</strong> {new Date(activeJob.startDate).toLocaleDateString()} - {new Date(activeJob.endDate).toLocaleDateString()}</p>
+                                {activeJob.departments.length > 0 && <p className="text-black text-xs mt-1"><strong>Settori:</strong> {activeJob.departments.join(', ')}</p>}
+                            </div>
+                             <div className="border border-black p-3">
+                                <h4 className="font-bold uppercase bg-gray-200 border-b border-black p-1 text-xs mb-2 text-black">Location</h4>
+                                <p className="text-lg font-bold mb-1 text-black">{activeJob.location}</p>
+                                <p className="text-black">{activeLocationData?.address || activeJob.location}</p>
+                                <p className="text-xs italic mt-1 text-black">{activeLocationData?.generalSurveyNotes || ''}</p>
+                            </div>
+                        </div>
+
+                        {/* SECTION 2: CONTACTS */}
+                        <div className="mb-6">
+                            <h4 className="font-bold uppercase border-b-2 border-black mb-2 text-black">Contatti Utili</h4>
+                            <table className="w-full border-collapse border border-black text-xs">
+                                <thead className="bg-gray-200 text-black">
+                                    <tr>
+                                        <th className="border border-black p-1 text-left">Ruolo</th>
+                                        <th className="border border-black p-1 text-left">Nome</th>
+                                        <th className="border border-black p-1 text-left">Telefono</th>
+                                        <th className="border border-black p-1 text-left">Email</th>
+                                    </tr>
                                 </thead>
                                 <tbody className="text-black">
-                                    {activeJob.phases.map(p => (<tr key={p.id}><td className="p-2 border border-black font-bold">{p.name}</td><td className="p-2 border border-black">{p.start.replace('T', ' ')}</td><td className="p-2 border border-black">{p.end.replace('T', ' ')}</td></tr>))}
+                                    <tr>
+                                        <td className="border border-black p-1 font-bold">Referente Lavoro</td>
+                                        <td className="border border-black p-1">{activeJob.contactName || '-'}</td>
+                                        <td className="border border-black p-1">{activeJob.contactPhone || '-'}</td>
+                                        <td className="border border-black p-1">{activeJob.contactEmail || '-'}</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="border border-black p-1 font-bold">Referente Location</td>
+                                        <td className="border border-black p-1">{activeLocationData?.contactName || '-'}</td>
+                                        <td className="border border-black p-1">{activeLocationData?.contactPhone || '-'}</td>
+                                        <td className="border border-black p-1">-</td>
+                                    </tr>
+                                    {activeJob.isSubcontracted && activeJob.subcontractorName && (
+                                        <tr>
+                                            <td className="border border-black p-1 font-bold">Subappalto</td>
+                                            <td className="border border-black p-1">{activeJob.subcontractorName}</td>
+                                            <td className="border border-black p-1">-</td>
+                                            <td className="border border-black p-1">-</td>
+                                        </tr>
+                                    )}
+                                    {activeJob.hasExternalService && activeJob.externalServiceName && (
+                                        <tr>
+                                            <td className="border border-black p-1 font-bold">Service {activeJob.externalServiceRole || 'Esterno'}</td>
+                                            <td className="border border-black p-1">{activeJob.externalServiceName}</td>
+                                            <td className="border border-black p-1">-</td>
+                                            <td className="border border-black p-1">-</td>
+                                        </tr>
+                                    )}
+                                    {activeJob.hasPorterage && activeJob.porterageAgency && (
+                                        <tr>
+                                            <td className="border border-black p-1 font-bold">Facchinaggio</td>
+                                            <td className="border border-black p-1">{activeJob.porterageAgency}</td>
+                                            <td className="border border-black p-1 text-center font-bold" colSpan={2}>
+                                                {activeJob.porterageTime ? new Date(activeJob.porterageTime).toLocaleString([], {weekday:'short', hour:'2-digit', minute:'2-digit'}) : ''}
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* SECTION 3: LOGISTICS & OUTFIT */}
+                        <div className="grid grid-cols-2 gap-8 mb-6">
+                            <div>
+                                <h4 className="font-bold uppercase border-b-2 border-black mb-2 text-black">Logistica & Hotel</h4>
+                                <ul className="list-disc pl-4 text-xs space-y-1 text-black">
+                                    <li><strong>Mezzi:</strong> {activeJob.vehicles.length > 0 ? activeJob.vehicles.map(v => `${v.quantity}x ${v.type}`).join(', ') : 'Nessun mezzo assegnato'}</li>
+                                    {activeJob.isAwayJob && (
+                                        <>
+                                            <li><strong>Hotel:</strong> {activeJob.hotelName || 'Da definire'}</li>
+                                            <li><strong>Indirizzo Hotel:</strong> {activeJob.hotelAddress || '-'}</li>
+                                        </>
+                                    )}
+                                </ul>
+                            </div>
+                            <div>
+                                <h4 className="font-bold uppercase border-b-2 border-black mb-2 text-black">Info Crew</h4>
+                                <ul className="list-disc pl-4 text-xs space-y-1 text-black">
+                                    <li><strong>Outfit:</strong> {activeJob.outfitNoLogo ? 'NO LOGO' : ''} {activeJob.outfit || 'Standard'}</li>
+                                    <li><strong>Crew Assegnata:</strong> {activeJob.assignedCrew.length} Tecnici</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        {/* SECTION 4: SCHEDULE */}
+                        <div className="mb-8">
+                            <h4 className="font-bold uppercase border-b-2 border-black mb-2 text-black">Programma Orario (Phases)</h4>
+                            <table className="w-full text-sm text-left border-collapse border border-black">
+                                <thead className="bg-gray-200 text-black uppercase font-bold text-xs">
+                                    <tr><th className="p-1 border border-black">Attività</th><th className="p-1 border border-black w-32">Inizio</th><th className="p-1 border border-black w-32">Fine</th></tr>
+                                </thead>
+                                <tbody className="text-black">
+                                    {activeJob.phases.map(p => (
+                                        <tr key={p.id}>
+                                            <td className="p-1 border border-black font-bold">{p.name}</td>
+                                            <td className="p-1 border border-black">{new Date(p.start).toLocaleString('it-IT', {weekday: 'short', hour: '2-digit', minute:'2-digit'})}</td>
+                                            <td className="p-1 border border-black">{new Date(p.end).toLocaleString('it-IT', {hour: '2-digit', minute:'2-digit'})}</td>
+                                        </tr>
+                                    ))}
                                 </tbody>
                             </table>
                         </div>
                         
+                         {/* SECTION 5: NOTES */}
+                        {activeJob.description && (
+                             <div className="mb-8 border border-black p-2 bg-gray-100">
+                                 <h4 className="font-bold uppercase text-xs mb-1 text-black">Note di Produzione</h4>
+                                 <p className="text-xs italic text-black">{activeJob.description}</p>
+                             </div>
+                        )}
+
                         {/* PAGE BREAK FOR PACKING LIST */}
                         <div className="page-break w-full h-1 bg-gray-200 my-8 print:h-0 print:my-0 print:bg-transparent"></div>
 
+                        {/* LISTA MATERIALE (PACKING LIST) */}
                         <div className="border-b-2 border-black pb-4 mb-6 pt-8 flex justify-between items-center break-before-page">
                              <div className="flex items-center gap-4">
                                 {settings?.logoUrl && <img src={settings.logoUrl} className="w-12 h-12 object-contain" alt="GLR" />}
-                                <div><h1 className="text-2xl font-bold uppercase tracking-tight text-black">Packing List</h1></div>
+                                <div><h1 className="text-2xl font-bold uppercase tracking-tight text-black">Lista Materiale</h1></div>
+                            </div>
+                            <div className="text-right text-black">
+                                <p className="font-bold">{activeJob.title}</p>
+                                <p className="text-xs">{activeJob.location}</p>
                             </div>
                         </div>
-                        {['Audio', 'Video', 'Luci', 'Strutture', 'Cavi'].map(cat => {
+                        
+                        <div className="space-y-6">
+                        {['Audio', 'Video', 'Luci', 'Strutture', 'Cavi', 'Rete', 'Accessori', 'Altro'].map(cat => {
                             const items = materialByCategory[cat];
                             if (!items || items.length === 0) return null;
                             return (
-                                <div key={cat} className="mb-6 break-inside-avoid">
-                                    <h4 className="font-bold uppercase bg-gray-200 text-black border border-black px-3 py-1 mb-0 text-sm">{cat}</h4>
-                                    <table className="w-full text-sm border-collapse border border-black">
-                                        <thead className="bg-gray-100 text-xs uppercase text-black"><tr><th className="border border-black p-2 w-12 text-center">Chk</th><th className="border border-black p-2 text-left">Articolo</th><th className="border border-black p-2 text-center w-16">Qtà</th></tr></thead>
-                                        <tbody className="text-black">
+                                <div key={cat} className="break-inside-avoid">
+                                    <h4 className="font-bold uppercase bg-black text-white px-2 py-1 mb-0 text-sm border border-black">{cat}</h4>
+                                    <table className="w-full text-sm border-2 border-black border-t-0 border-collapse">
+                                        <thead className="bg-gray-200 uppercase text-xs text-black">
+                                            <tr>
+                                                <th className="border-2 border-black p-2 w-16 text-center">Check</th>
+                                                <th className="border-2 border-black p-2 text-left">Descrizione Articolo</th>
+                                                <th className="border-2 border-black p-2 w-24 text-center">Quantità</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
                                             {items.map(m => (
                                                 <tr key={m.id}>
-                                                    <td className="border border-black p-2 text-center align-middle"><div className="w-4 h-4 border border-black mx-auto"></div></td>
-                                                    <td className="border border-black p-2 font-bold align-middle">{m.name}</td>
-                                                    <td className="border border-black p-2 text-center font-bold text-lg align-middle">{m.quantity}</td>
+                                                    <td className="border-2 border-black p-2 text-center align-middle">
+                                                        <div className="w-4 h-4 border-2 border-black mx-auto"></div>
+                                                    </td>
+                                                    <td className="border-2 border-black p-2 font-bold align-middle text-black">
+                                                        {m.name}
+                                                        {m.isExternal && <span className="text-[10px] ml-2 italic font-normal text-black">(NOLEGGIO)</span>}
+                                                        {m.notes && <div className="text-[10px] font-normal italic mt-0.5 text-black">{m.notes}</div>}
+                                                    </td>
+                                                    <td className="border-2 border-black p-2 text-center font-bold align-middle text-black text-lg">{m.quantity}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -952,6 +1329,7 @@ export const Jobs: React.FC<JobsProps> = ({ jobs, crew, locations, inventory, st
                                 </div>
                             )
                         })}
+                        </div>
                     </div>
                 </div>
             )}

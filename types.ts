@@ -9,6 +9,14 @@ export enum JobStatus {
   CANCELLED = 'Annullato'
 }
 
+export enum RentalStatus {
+  DRAFT = 'Preventivo',
+  CONFIRMED = 'Confermato',
+  OUT = 'Uscito / In Corso',
+  RETURNED = 'Rientrato',
+  CANCELLED = 'Annullato'
+}
+
 export enum CrewRole {
   AUDIO_ENG = 'Fellicista Audio',
   LIGHT_OP = 'Operatore Luci',
@@ -243,6 +251,7 @@ export interface JobPhase {
   end: string;
   callTimeWarehouse?: string;
   callTimeSite?: string;
+  assignedCrew?: string[]; // New: Crew assigned specifically to this phase
 }
 
 export interface JobVehicle {
@@ -270,6 +279,17 @@ export interface Job {
   isAwayJob: boolean;
   isSubcontracted: boolean;
   subcontractorName?: string;
+  
+  // New Fields for External Services
+  hasExternalService?: boolean;
+  externalServiceName?: string;
+  externalServiceRole?: string; // Audio, Video, Luci, Strutture
+
+  // New Fields for Logistics/Porterage
+  hasPorterage?: boolean;
+  porterageAgency?: string;
+  porterageTime?: string;
+
   contactName?: string;
   contactPhone?: string;
   contactEmail?: string;
@@ -281,6 +301,24 @@ export interface Job {
   materialList: MaterialItem[];
   assignedCrew: string[];
   notes: string;
+  hotelName?: string;
+  hotelAddress?: string;
+}
+
+export interface Rental {
+    id: string;
+    status: RentalStatus;
+    client: string; // Azienda / Cliente
+    contactName?: string; // Referente
+    contactPhone?: string;
+    contactEmail?: string;
+    pickupDate: string;
+    returnDate: string;
+    deliveryMethod: 'RITIRO' | 'CONSEGNA';
+    deliveryAddress?: string;
+    items: MaterialItem[];
+    notes?: string;
+    totalPrice?: number;
 }
 
 export interface RolePermissions {
@@ -303,6 +341,9 @@ export interface RolePermissions {
     // EXPENSES
     canViewExpenses: boolean;
     canManageExpenses: boolean;
+    // RENTALS
+    canViewRentals: boolean;
+    canManageRentals: boolean;
 }
 
 export interface AppSettings {

@@ -1,7 +1,8 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { StandardMaterialList, MaterialItem, InventoryItem } from '../types';
-import { Plus, Edit3, Trash2, Save, X, Search, Minus, Package, Tag, CheckSquare, Layers, Box, ChevronRight, AlertCircle } from 'lucide-react';
+import { Plus, Edit3, Trash2, Save, X, Search, Minus, Package, Tag, CheckSquare, Layers, Box, ChevronRight, AlertCircle, ChevronLeft } from 'lucide-react';
 
 interface StandardListsProps {
     lists: StandardMaterialList[];
@@ -11,14 +12,20 @@ interface StandardListsProps {
     onDeleteList: (id: string) => void;
 }
 
+const ITEMS_PER_PAGE = 8;
+
 export const StandardLists: React.FC<StandardListsProps> = ({ lists, inventory, onAddList, onUpdateList, onDeleteList }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [activeList, setActiveList] = useState<StandardMaterialList | null>(null);
     
+    // Main View Filter & Pagination
+    const [listSearchTerm, setListSearchTerm] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    
     // UI Mode State
     const [addMode, setAddMode] = useState<'BROWSE' | 'MANUAL'>('BROWSE');
 
-    // Filter State
+    // Filter State (Inside Editor)
     const [searchTerm, setSearchTerm] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('ALL');
     const [typeFilter, setTypeFilter] = useState('ALL');
@@ -49,7 +56,25 @@ export const StandardLists: React.FC<StandardListsProps> = ({ lists, inventory, 
         setActiveList({ ...activeList, labels: updated });
     };
 
-    // --- LOGICA FILTRI (come Magazzino) ---
+    // --- LOGICA LISTE FILTRATE E PAGINATE ---
+    const filteredLists = useMemo(() => {
+        const s = listSearchTerm.toLowerCase();
+        return lists.filter(l => 
+            l.name.toLowerCase().includes(s) || 
+            (l.labels || []).some(label => label.toLowerCase().includes(s))
+        );
+    }, [lists, listSearchTerm]);
+
+    const totalPages = Math.ceil(filteredLists.length / ITEMS_PER_PAGE);
+    const currentLists = filteredLists.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+    // Reset pagination when search changes
+    React.useEffect(() => {
+        setCurrentPage(1);
+    }, [listSearchTerm]);
+
+
+    // --- LOGICA FILTRI INVENTARIO (come Magazzino) ---
     const availableCategories = useMemo(() => ['ALL', ...Array.from(new Set(inventory.map(i => i.category))).sort()], [inventory]);
     
     const availableTypes = useMemo(() => {
@@ -288,48 +313,65 @@ export const StandardLists: React.FC<StandardListsProps> = ({ lists, inventory, 
         <div className="space-y-6 animate-fade-in h-full flex flex-col">
             <div className="flex justify-between items-center shrink-0">
                 <h2 className="text-2xl font-bold text-white flex items-center gap-2"><Package/> Kit & Liste Standard</h2>
-                <button onClick={handleNew} className="bg-glr-accent text-glr-900 font-bold px-4 py-2 rounded-lg hover:bg-amber-400 flex items-center gap-2 transition-colors shadow-lg shadow-amber-500/20"><Plus size={20}/> Nuovo Kit</button>
+                <div className="flex gap-2">
+                     <div className="relative">
+                         <Search size={16} className="absolute left-3 top-2.5 text-gray-400"/>
+                         <input type="text" placeholder="Cerca Kit..." value={listSearchTerm} onChange={e => setListSearchTerm(e.target.value)} className="w-64 bg-glr-800 border border-glr-700 rounded-lg pl-9 pr-3 py-2 text-white text-sm focus:border-glr-accent outline-none"/>
+                     </div>
+                     <button onClick={handleNew} className="bg-glr-accent text-glr-900 font-bold px-4 py-2 rounded-lg hover:bg-amber-400 flex items-center gap-2 transition-colors shadow-lg shadow-amber-500/20"><Plus size={20}/> Nuovo Kit</button>
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 overflow-y-auto pb-4">
-                {lists.length === 0 && <div className="col-span-full text-center text-gray-500 py-20 bg-glr-800/30 rounded-xl border border-dashed border-glr-700">Nessun kit standard presente. Creane uno nuovo per velocizzare i preventivi.</div>}
-                {lists.map(list => (
-                    <div key={list.id} className="bg-glr-800 border border-glr-700 rounded-xl p-5 hover:border-glr-accent transition-all group flex flex-col shadow-lg hover:shadow-xl hover:shadow-amber-500/5 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 p-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-l from-glr-800 via-glr-800 to-transparent pl-8">
-                            <button onClick={() => { setActiveList(list); setIsEditing(true); setAddMode('BROWSE'); }} className="text-gray-400 hover:text-white bg-glr-700 p-1.5 rounded-md hover:bg-glr-600 transition-colors"><Edit3 size={16}/></button>
-                            <button onClick={() => onDeleteList(list.id)} className="text-gray-400 hover:text-red-400 bg-glr-700 p-1.5 rounded-md hover:bg-red-900/50 transition-colors"><Trash2 size={16}/></button>
-                        </div>
-                        
-                        <div className="mb-3">
-                             <div className="flex flex-wrap gap-2 mb-2">
-                                {(list.labels || []).slice(0,3).map(l => (
-                                    <span key={l} className="text-[10px] bg-blue-900/20 text-blue-300 px-2 py-0.5 rounded-full border border-blue-900/50 flex items-center gap-1"><Tag size={8}/> {l}</span>
-                                ))}
-                                {(list.labels?.length || 0) > 3 && <span className="text-[10px] text-gray-500 px-1 py-0.5">+{list.labels!.length - 3}</span>}
+            <div className="flex-1 overflow-y-auto pb-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {currentLists.length === 0 && <div className="col-span-full text-center text-gray-500 py-20 bg-glr-800/30 rounded-xl border border-dashed border-glr-700">Nessun kit standard trovato.</div>}
+                    {currentLists.map(list => (
+                        <div key={list.id} className="bg-glr-800 border border-glr-700 rounded-xl p-5 hover:border-glr-accent transition-all group flex flex-col shadow-lg hover:shadow-xl hover:shadow-amber-500/5 relative overflow-hidden h-64">
+                            <div className="absolute top-0 right-0 p-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-l from-glr-800 via-glr-800 to-transparent pl-8">
+                                <button onClick={() => { setActiveList(list); setIsEditing(true); setAddMode('BROWSE'); }} className="text-gray-400 hover:text-white bg-glr-700 p-1.5 rounded-md hover:bg-glr-600 transition-colors"><Edit3 size={16}/></button>
+                                <button onClick={() => onDeleteList(list.id)} className="text-gray-400 hover:text-red-400 bg-glr-700 p-1.5 rounded-md hover:bg-red-900/50 transition-colors"><Trash2 size={16}/></button>
                             </div>
-                            <h3 className="text-lg font-bold text-white leading-tight group-hover:text-glr-accent transition-colors">{list.name}</h3>
-                        </div>
-                        
-                        <div className="flex-1 bg-glr-900/50 rounded-lg p-3 border border-glr-700/50 mb-3">
-                             <div className="space-y-1">
-                                {list.items.slice(0, 4).map(i => (
-                                    <div key={i.id} className="flex justify-between items-center text-xs">
-                                        <span className="text-gray-300 truncate pr-2">{i.name}</span>
-                                        <span className="text-gray-500 font-mono">x{i.quantity}</span>
-                                    </div>
-                                ))}
-                                {list.items.length > 4 && <div className="text-[10px] text-gray-500 italic mt-1 pt-1 border-t border-glr-700/50">...altri {list.items.length - 4} articoli</div>}
-                                {list.items.length === 0 && <span className="text-xs text-gray-600 italic">Nessun articolo</span>}
-                             </div>
-                        </div>
+                            
+                            <div className="mb-3">
+                                <div className="flex flex-wrap gap-2 mb-2">
+                                    {(list.labels || []).slice(0,3).map(l => (
+                                        <span key={l} className="text-[10px] bg-blue-900/20 text-blue-300 px-2 py-0.5 rounded-full border border-blue-900/50 flex items-center gap-1"><Tag size={8}/> {l}</span>
+                                    ))}
+                                    {(list.labels?.length || 0) > 3 && <span className="text-[10px] text-gray-500 px-1 py-0.5">+{list.labels!.length - 3}</span>}
+                                </div>
+                                <h3 className="text-lg font-bold text-white leading-tight group-hover:text-glr-accent transition-colors truncate" title={list.name}>{list.name}</h3>
+                            </div>
+                            
+                            <div className="flex-1 bg-glr-900/50 rounded-lg p-3 border border-glr-700/50 mb-3 overflow-hidden">
+                                <div className="space-y-1">
+                                    {list.items.slice(0, 4).map(i => (
+                                        <div key={i.id} className="flex justify-between items-center text-xs">
+                                            <span className="text-gray-300 truncate pr-2">{i.name}</span>
+                                            <span className="text-gray-500 font-mono">x{i.quantity}</span>
+                                        </div>
+                                    ))}
+                                    {list.items.length > 4 && <div className="text-[10px] text-gray-500 italic mt-1 pt-1 border-t border-glr-700/50">...altri {list.items.length - 4} articoli</div>}
+                                    {list.items.length === 0 && <span className="text-xs text-gray-600 italic">Nessun articolo</span>}
+                                </div>
+                            </div>
 
-                        <div className="flex justify-between items-center text-xs text-gray-500 mt-auto border-t border-glr-700/50 pt-3">
-                            <span className="flex items-center gap-1"><Layers size={12}/> {list.items.length} voci univoche</span>
-                            <span className="flex items-center gap-1"><Box size={12}/> {list.items.reduce((acc, i) => acc + i.quantity, 0)} pezzi tot.</span>
+                            <div className="flex justify-between items-center text-xs text-gray-500 mt-auto border-t border-glr-700/50 pt-3">
+                                <span className="flex items-center gap-1"><Layers size={12}/> {list.items.length} voci univoche</span>
+                                <span className="flex items-center gap-1"><Box size={12}/> {list.items.reduce((acc, i) => acc + i.quantity, 0)} pezzi tot.</span>
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    ))}
+                </div>
             </div>
+
+            {/* Pagination Controls */}
+             {totalPages > 1 && (
+                <div className="flex justify-between items-center bg-glr-800 p-3 rounded-xl border border-glr-700 shrink-0">
+                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-2 rounded hover:bg-glr-700 disabled:opacity-30 text-white"><ChevronLeft size={20} /></button>
+                    <span className="text-sm text-gray-400">Pagina <span className="text-white font-bold">{currentPage}</span> di {totalPages}</span>
+                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-2 rounded hover:bg-glr-700 disabled:opacity-30 text-white"><ChevronRight size={20} /></button>
+                </div>
+            )}
         </div>
     );
 };
