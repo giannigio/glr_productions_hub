@@ -1,4 +1,4 @@
-import { Job, CrewMember, Location, InventoryItem, AppSettings, Notification, JobStatus, CrewType, CrewRole, ApprovalStatus, VehicleType, StandardMaterialList, Rental, RentalStatus } from '../types';
+import { Job, CrewMember, Location, InventoryItem, AppSettings, Notification, JobStatus, CrewType, CrewRole, ApprovalStatus, VehicleType, StandardMaterialList, Rental, RentalStatus, CompanyExpense, RecurringPayment, PersonnelCost } from '../types';
 
 // --- MOCK DATA FOR DEMO MODE ---
 
@@ -113,7 +113,17 @@ let MOCK_JOBS: Job[] = [
             { id: 'm1', inventoryId: '1', name: 'Shure SM58', category: 'Audio', type: 'Microfono', quantity: 2, isExternal: false },
             { id: 'm2', inventoryId: '2', name: 'Yamaha QL1', category: 'Audio', type: 'Mixer', quantity: 1, isExternal: false }
         ],
-        assignedCrew: ['2', '3'], notes: ''
+        assignedCrew: ['2', '3'], notes: '',
+        extraCharges: 250, totalInvoiced: 8500
+    },
+    {
+        id: '2', title: 'Gala Dinner Beta', client: 'Beta Inc', location: 'Hotel Rome', locationId: '',
+        startDate: new Date(Date.now() - 864000000).toISOString().split('T')[0], endDate: new Date(Date.now() - 777600000).toISOString().split('T')[0],
+        status: JobStatus.COMPLETED, description: 'Cena di gala', departments: ['Luci'],
+        isAwayJob: false, isSubcontracted: false, outfitNoLogo: true,
+        contactName: '', contactPhone: '', contactEmail: '',
+        phases: [], vehicles: [], materialList: [], assignedCrew: ['2', '4'], notes: '',
+        extraCharges: 0, totalInvoiced: 4200
     }
 ];
 
@@ -138,6 +148,23 @@ let MOCK_RENTALS: Rental[] = [
         notes: 'Pagamento al ritiro',
         totalPrice: 150
     }
+];
+
+// --- MOCK FINANCIAL DATA ---
+let MOCK_EXPENSES: CompanyExpense[] = [
+    { id: '1', date: new Date().toISOString().split('T')[0], category: 'Affitto Locali', description: 'Affitto Magazzino Gennaio', amount: 1500, isPaid: true },
+    { id: '2', date: new Date().toISOString().split('T')[0], category: 'Utenze', description: 'Bolletta Elettrica', amount: 320, isPaid: false },
+    { id: '3', date: new Date(Date.now() - 2592000000).toISOString().split('T')[0], category: 'Assicurazioni', description: 'Assicurazione Furgoni', amount: 800, isPaid: true }
+];
+
+let MOCK_RECURRING: RecurringPayment[] = [
+    { id: '1', name: 'Leasing Furgone', category: 'Leasing', amount: 450, frequency: 'Monthly', nextDueDate: new Date(Date.now() + 604800000).toISOString().split('T')[0], isActive: true, provider: 'Leasys' },
+    { id: '2', name: 'Adobe Creative Cloud', category: 'Abbonamenti', amount: 60, frequency: 'Monthly', nextDueDate: new Date(Date.now() + 1209600000).toISOString().split('T')[0], isActive: true, provider: 'Adobe' }
+];
+
+let MOCK_PERSONNEL_COSTS: PersonnelCost[] = [
+    { id: '1', title: 'F24 Gennaio 2024', date: '2024-02-16', amount: 2450, type: 'F24', status: 'PAID' },
+    { id: '2', title: 'Contributi INPS', date: '2024-03-16', amount: 1200, type: 'INPS', status: 'UNPAID' }
 ];
 
 // --- MOCK API ---
@@ -214,5 +241,21 @@ export const api = {
               linkTo: 'CREW'
           }
       ]; 
-  }
+  },
+
+  // --- NEW FINANCIAL ENDPOINTS ---
+  getCompanyExpenses: async () => { await delay(300); return [...MOCK_EXPENSES]; },
+  createCompanyExpense: async (exp: CompanyExpense) => { await delay(300); const n = {...exp, id: Date.now().toString()}; MOCK_EXPENSES.push(n); return n; },
+  updateCompanyExpense: async (exp: CompanyExpense) => { await delay(300); MOCK_EXPENSES = MOCK_EXPENSES.map(e => e.id === exp.id ? exp : e); return exp; },
+  deleteCompanyExpense: async (id: string) => { await delay(300); MOCK_EXPENSES = MOCK_EXPENSES.filter(e => e.id !== id); return true; },
+
+  getRecurringPayments: async () => { await delay(300); return [...MOCK_RECURRING]; },
+  createRecurringPayment: async (pay: RecurringPayment) => { await delay(300); const n = {...pay, id: Date.now().toString()}; MOCK_RECURRING.push(n); return n; },
+  updateRecurringPayment: async (pay: RecurringPayment) => { await delay(300); MOCK_RECURRING = MOCK_RECURRING.map(p => p.id === pay.id ? pay : p); return pay; },
+  deleteRecurringPayment: async (id: string) => { await delay(300); MOCK_RECURRING = MOCK_RECURRING.filter(p => p.id !== id); return true; },
+
+  getPersonnelCosts: async () => { await delay(300); return [...MOCK_PERSONNEL_COSTS]; },
+  createPersonnelCost: async (cost: PersonnelCost) => { await delay(300); const n = {...cost, id: Date.now().toString()}; MOCK_PERSONNEL_COSTS.push(n); return n; },
+  updatePersonnelCost: async (cost: PersonnelCost) => { await delay(300); MOCK_PERSONNEL_COSTS = MOCK_PERSONNEL_COSTS.map(c => c.id === cost.id ? cost : c); return cost; },
+  deletePersonnelCost: async (id: string) => { await delay(300); MOCK_PERSONNEL_COSTS = MOCK_PERSONNEL_COSTS.filter(c => c.id !== id); return true; },
 };

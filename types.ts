@@ -303,6 +303,8 @@ export interface Job {
   notes: string;
   hotelName?: string;
   hotelAddress?: string;
+  extraCharges?: number;
+  totalInvoiced?: number;
 }
 
 export interface Rental {
@@ -319,6 +321,42 @@ export interface Rental {
     items: MaterialItem[];
     notes?: string;
     totalPrice?: number;
+}
+
+// --- NEW FINANCIAL TYPES ---
+
+export interface CompanyExpense {
+    id: string;
+    date: string;
+    category: string; // Affitto, Utenze, Assicurazioni, etc.
+    description: string;
+    amount: number;
+    paymentMethod?: string;
+    isPaid: boolean;
+    attachmentUrl?: string;
+}
+
+export interface RecurringPayment {
+    id: string;
+    name: string;
+    category: string;
+    amount: number;
+    frequency: 'Monthly' | 'Quarterly' | 'Yearly';
+    nextDueDate: string;
+    provider?: string;
+    contractUrl?: string;
+    isActive: boolean;
+}
+
+export interface PersonnelCost {
+    id: string;
+    title: string;
+    date: string; // Due date
+    amount: number;
+    type: 'F24' | 'INPS' | 'INAIL' | 'TFR';
+    status: 'PAID' | 'UNPAID' | 'PENDING';
+    notes?: string;
+    attachmentUrl?: string;
 }
 
 export interface RolePermissions {
