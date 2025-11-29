@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String      @id @default(uuid())
+  email         String      @unique
+  password      String
+  role          String
+  crewMemberId  String?   @unique
+  crewMember    CrewMember? @relation(fields: [crewMemberId], references: [id])
+  createdAt     DateTime    @default(now())
+}
+
+model CrewMember {
+  id         String   @id @default(uuid())
+  name       String
+  type       String
+  roles      String[]
+  dailyRate  Int
+  phone      String
+  user       User?
+  createdAt  DateTime @default(now())
+}
+
+model Job {
+  id              String   @id @default(uuid())
+  title           String
+  client          String
+  location        String?
+  locationId      String?
+  startDate       DateTime?
+  endDate         DateTime?
+  status          String?
+  description     String?
+  departments     String[]
+  isAwayJob       Boolean  @default(false)
+  isSubcontracted Boolean  @default(false)
+  outfitNoLogo    Boolean  @default(false)
+  internalClient  String?
+  contactName     String?
+  contactPhone    String?
+  contactEmail    String?
+  phases          Json?
+  vehicles        Json?
+  materialList    Json?
+  assignedCrew    String[]
+  extraCharges    Int?
+  totalInvoiced   Int?
+  notes           String?
+  createdAt       DateTime @default(now())
+}
+
+model Location {
+  id                 String   @id @default(uuid())
+  name               String
+  address            String?
+  hallSizeMQ         Int?
+  mapsLink           String?
+  isZtl              Boolean? @default(false)
+  contactName        String?
+  contactPhone       String?
+  accessHours        String?
+  power              Json?
+  network            Json?
+  logistics          Json?
+  equipment          Json?
+  generalSurveyNotes String?
+  createdAt          DateTime @default(now())
+}
+
+model InventoryItem {
+  id              String   @id @default(uuid())
+  name            String
+  category        String
+  type            String?
+  quantityOwned   Int
+  serialNumber    String?
+  accessories     String?
+  status          String?
+  related         String?
+  correlationType String?
+  notes           String?
+  weightKg        Float?
+  createdAt       DateTime @default(now())
+}
+
+model StandardMaterialList {
+  id        String   @id @default(uuid())
+  name      String
+  labels    String[]
+  items     Json
+  createdAt DateTime @default(now())
+}
+
+model AppSettings {
+  id       Int    @id @default(1)
+  settings Json
+}
