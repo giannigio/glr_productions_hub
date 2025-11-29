@@ -1,4 +1,5 @@
-import { Job, CrewMember, Location, InventoryItem, AppSettings, Notification, JobStatus, CrewType, CrewRole, ApprovalStatus, VehicleType, StandardMaterialList, Rental, RentalStatus, CompanyExpense, RecurringPayment, PersonnelCost } from '../types';
+import { Job, CrewMember, Location, InventoryItem, AppSettings, Notification, JobStatus, CrewType, CrewRole, ApprovalStatus, VehicleType, StandardMaterialList, Rental, RentalStatus, CompanyExpense, RecurringPayment, PersonnelCost, SystemRole } from '../types';
+import { supabaseClient, isSupabaseConfigured } from './supabaseClient';
 
 // --- MOCK DATA FOR DEMO MODE ---
 
@@ -171,21 +172,142 @@ let MOCK_PERSONNEL_COSTS: PersonnelCost[] = [
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
+type JsonPayloadRow<T> = { id: string; payload: T };
+
+const mapJsonRows = <T>(rows: JsonPayloadRow<T>[]): T[] =>
+  rows.map(row => ({ ...(row.payload as T), id: row.id } as T));
+
+const fetchCollection = async <T>(table: string): Promise<T[]> => {
+  if (!supabaseClient) throw new Error('Supabase non configurato');
+  const { data, error } = await supabaseClient
+    .from<JsonPayloadRow<T>>(table)
+    .select('id, payload');
+
+  if (error) throw error;
+  return mapJsonRows<T>(data ?? []);
+};
+
+const fetchSingle = async <T>(table: string, id: string): Promise<T | null> => {
+  if (!supabaseClient) throw new Error('Supabase non configurato');
+  const { data, error } = await supabaseClient
+    .from<JsonPayloadRow<T>>(table)
+    .select('id, payload')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data ? ({ ...(data.payload as T), id: data.id } as T) : null;
+};
+
+const insertPayload = async <T extends { id?: string }>(table: string, payload: T): Promise<T> => {
+  if (!supabaseClient) throw new Error('Supabase non configurato');
+  const { data, error } = await supabaseClient
+    .from<JsonPayloadRow<T>>(table)
+    .insert({ payload: { ...payload, id: undefined } })
+    .select('id, payload')
+    .single();
+
+  if (error || !data) throw error;
+  return { ...(data.payload as T), id: data.id } as T;
+};
+
+const updatePayload = async <T extends { id: string }>(table: string, payload: T): Promise<T> => {
+  if (!supabaseClient) throw new Error('Supabase non configurato');
+  const { data, error } = await supabaseClient
+    .from<JsonPayloadRow<T>>(table)
+    .update({ payload })
+    .eq('id', payload.id)
+    .select('id, payload')
+    .single();
+
+  if (error || !data) throw error;
+  return { ...(data.payload as T), id: data.id } as T;
+};
+
+const deleteRow = async (table: string, id: string) => {
+  if (!supabaseClient) throw new Error('Supabase non configurato');
+  const { error } = await supabaseClient.from(table).delete().eq('id', id);
+  if (error) throw error;
+  return true;
+};
+
+const isSupabaseReady = () => isSupabaseConfigured && Boolean(supabaseClient);
+
+const getSupabaseProfile = async (userId: string) => {
+  if (!isSupabaseReady()) return null;
+  const { data, error } = await supabaseClient!
+    .from('profiles')
+    .select('user_id, full_name, system_role, email')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null;
+    throw error;
+  }
+
+  if (!data) return null;
+  return {
+    id: data.user_id as string,
+    name: data.full_name as string,
+    role: data.system_role as SystemRole,
+    email: data.email as string,
+  };
+};
+
 export const api = {
   login: async (email: string, pass: string) => {
+      if (isSupabaseReady()) {
+        const { data, error } = await supabaseClient!.auth.signInWithPassword({ email, password: pass });
+        if (error) throw new Error(error.message);
+
+        const profile = await getSupabaseProfile(data.user.id);
+        return {
+          success: true,
+          user: profile ?? { id: data.user.id, name: data.user.email ?? 'Utente', role: 'TECH' as SystemRole },
+          token: data.session?.access_token ?? '',
+        };
+      }
+
       await delay(500);
       return { success: true, user: MOCK_CREW[0], token: 'demo' };
   },
 
-  getJobs: async () => { await delay(300); return [...MOCK_JOBS]; },
-  createJob: async (job: Job) => { await delay(300); const n = {...job, id: Date.now().toString()}; MOCK_JOBS.push(n); return n; },
-  updateJob: async (job: Job) => { await delay(300); MOCK_JOBS = MOCK_JOBS.map(j => j.id === job.id ? job : j); return job; },
-  deleteJob: async (id: string) => { await delay(300); MOCK_JOBS = MOCK_JOBS.filter(j => j.id !== id); return true; },
+  getProfile: async (userId: string) => {
+      const profile = await getSupabaseProfile(userId);
+      if (profile) return profile;
+      return MOCK_CREW.find(c => c.id === userId) ?? null;
+  },
 
-  getCrew: async () => { await delay(300); return [...MOCK_CREW]; },
-  updateCrewMember: async (member: CrewMember) => { 
-      await delay(300); 
-      if(member.id.length < 10) { // New
+  getJobs: async () => {
+      if (isSupabaseReady()) return fetchCollection<Job>('jobs');
+      await delay(300); return [...MOCK_JOBS];
+  },
+  createJob: async (job: Job) => {
+      if (isSupabaseReady()) return insertPayload<Job>('jobs', job);
+      await delay(300); const n = {...job, id: Date.now().toString()}; MOCK_JOBS.push(n); return n;
+  },
+  updateJob: async (job: Job) => {
+      if (isSupabaseReady()) return updatePayload<Job>('jobs', job);
+      await delay(300); MOCK_JOBS = MOCK_JOBS.map(j => j.id === job.id ? job : j); return job;
+  },
+  deleteJob: async (id: string) => {
+      if (isSupabaseReady()) return deleteRow('jobs', id);
+      await delay(300); MOCK_JOBS = MOCK_JOBS.filter(j => j.id !== id); return true;
+  },
+
+  getCrew: async () => {
+      if (isSupabaseReady()) return fetchCollection<CrewMember>('crew_members');
+      await delay(300); return [...MOCK_CREW];
+  },
+  updateCrewMember: async (member: CrewMember) => {
+      if (isSupabaseReady()) {
+          if (!member.id || member.id.length < 10) return insertPayload<CrewMember>('crew_members', member);
+          return updatePayload<CrewMember>('crew_members', member);
+      }
+
+      await delay(300);
+      if(member.id.length < 10) {
           const n = {...member, id: Date.now().toString()};
           MOCK_CREW.push(n);
           return n;
@@ -195,32 +317,93 @@ export const api = {
       }
   },
 
-  getLocations: async () => { await delay(300); return [...MOCK_LOCATIONS]; },
-  createLocation: async (loc: Location) => { await delay(300); const n = {...loc, id: Date.now().toString()}; MOCK_LOCATIONS.push(n); return n; },
-  updateLocation: async (loc: Location) => { await delay(300); MOCK_LOCATIONS = MOCK_LOCATIONS.map(l => l.id === loc.id ? loc : l); return loc; },
-  deleteLocation: async (id: string) => { await delay(300); MOCK_LOCATIONS = MOCK_LOCATIONS.filter(l => l.id !== id); return true; },
+  getLocations: async () => {
+      if (isSupabaseReady()) return fetchCollection<Location>('locations');
+      await delay(300); return [...MOCK_LOCATIONS];
+  },
+  createLocation: async (loc: Location) => {
+      if (isSupabaseReady()) return insertPayload<Location>('locations', loc);
+      await delay(300); const n = {...loc, id: Date.now().toString()}; MOCK_LOCATIONS.push(n); return n;
+  },
+  updateLocation: async (loc: Location) => {
+      if (isSupabaseReady()) return updatePayload<Location>('locations', loc);
+      await delay(300); MOCK_LOCATIONS = MOCK_LOCATIONS.map(l => l.id === loc.id ? loc : l); return loc;
+  },
+  deleteLocation: async (id: string) => {
+      if (isSupabaseReady()) return deleteRow('locations', id);
+      await delay(300); MOCK_LOCATIONS = MOCK_LOCATIONS.filter(l => l.id !== id); return true;
+  },
 
-  getInventory: async () => { await delay(300); return [...MOCK_INVENTORY]; },
-  createInventoryItem: async (item: InventoryItem) => { await delay(300); const n = {...item, id: Date.now().toString()}; MOCK_INVENTORY.push(n); return n; },
-  updateInventoryItem: async (item: InventoryItem) => { await delay(300); MOCK_INVENTORY = MOCK_INVENTORY.map(i => i.id === item.id ? item : i); return item; },
-  deleteInventoryItem: async (id: string) => { await delay(300); MOCK_INVENTORY = MOCK_INVENTORY.filter(i => i.id !== id); return true; },
+  getInventory: async () => {
+      if (isSupabaseReady()) return fetchCollection<InventoryItem>('inventory_items');
+      await delay(300); return [...MOCK_INVENTORY];
+  },
+  createInventoryItem: async (item: InventoryItem) => {
+      if (isSupabaseReady()) return insertPayload<InventoryItem>('inventory_items', item);
+      await delay(300); const n = {...item, id: Date.now().toString()}; MOCK_INVENTORY.push(n); return n;
+  },
+  updateInventoryItem: async (item: InventoryItem) => {
+      if (isSupabaseReady()) return updatePayload<InventoryItem>('inventory_items', item);
+      await delay(300); MOCK_INVENTORY = MOCK_INVENTORY.map(i => i.id === item.id ? item : i); return item;
+  },
+  deleteInventoryItem: async (id: string) => {
+      if (isSupabaseReady()) return deleteRow('inventory_items', id);
+      await delay(300); MOCK_INVENTORY = MOCK_INVENTORY.filter(i => i.id !== id); return true;
+  },
 
-  getStandardLists: async () => { await delay(300); return [...MOCK_STANDARD_LISTS]; },
-  createStandardList: async (list: StandardMaterialList) => { await delay(300); const n = {...list, id: Date.now().toString()}; MOCK_STANDARD_LISTS.push(n); return n; },
-  updateStandardList: async (list: StandardMaterialList) => { await delay(300); MOCK_STANDARD_LISTS = MOCK_STANDARD_LISTS.map(l => l.id === list.id ? list : l); return list; },
-  deleteStandardList: async (id: string) => { await delay(300); MOCK_STANDARD_LISTS = MOCK_STANDARD_LISTS.filter(l => l.id !== id); return true; },
+  getStandardLists: async () => {
+      if (isSupabaseReady()) return fetchCollection<StandardMaterialList>('standard_material_lists');
+      await delay(300); return [...MOCK_STANDARD_LISTS];
+  },
+  createStandardList: async (list: StandardMaterialList) => {
+      if (isSupabaseReady()) return insertPayload<StandardMaterialList>('standard_material_lists', list);
+      await delay(300); const n = {...list, id: Date.now().toString()}; MOCK_STANDARD_LISTS.push(n); return n;
+  },
+  updateStandardList: async (list: StandardMaterialList) => {
+      if (isSupabaseReady()) return updatePayload<StandardMaterialList>('standard_material_lists', list);
+      await delay(300); MOCK_STANDARD_LISTS = MOCK_STANDARD_LISTS.map(l => l.id === list.id ? list : l); return list;
+  },
+  deleteStandardList: async (id: string) => {
+      if (isSupabaseReady()) return deleteRow('standard_material_lists', id);
+      await delay(300); MOCK_STANDARD_LISTS = MOCK_STANDARD_LISTS.filter(l => l.id !== id); return true;
+  },
 
-  getRentals: async () => { await delay(300); return [...MOCK_RENTALS]; },
-  createRental: async (rental: Rental) => { await delay(300); const n = {...rental, id: Date.now().toString()}; MOCK_RENTALS.push(n); return n; },
-  updateRental: async (rental: Rental) => { await delay(300); MOCK_RENTALS = MOCK_RENTALS.map(r => r.id === rental.id ? rental : r); return rental; },
-  deleteRental: async (id: string) => { await delay(300); MOCK_RENTALS = MOCK_RENTALS.filter(r => r.id !== id); return true; },
+  getRentals: async () => {
+      if (isSupabaseReady()) return fetchCollection<Rental>('rentals');
+      await delay(300); return [...MOCK_RENTALS];
+  },
+  createRental: async (rental: Rental) => {
+      if (isSupabaseReady()) return insertPayload<Rental>('rentals', rental);
+      await delay(300); const n = {...rental, id: Date.now().toString()}; MOCK_RENTALS.push(n); return n;
+  },
+  updateRental: async (rental: Rental) => {
+      if (isSupabaseReady()) return updatePayload<Rental>('rentals', rental);
+      await delay(300); MOCK_RENTALS = MOCK_RENTALS.map(r => r.id === rental.id ? rental : r); return rental;
+  },
+  deleteRental: async (id: string) => {
+      if (isSupabaseReady()) return deleteRow('rentals', id);
+      await delay(300); MOCK_RENTALS = MOCK_RENTALS.filter(r => r.id !== id); return true;
+  },
 
-  getSettings: async () => { await delay(300); return MOCK_SETTINGS; },
-  updateSettings: async (s: AppSettings) => { await delay(300); MOCK_SETTINGS = s; return s; },
+  getSettings: async () => {
+      if (isSupabaseReady()) {
+          const settings = await fetchCollection<AppSettings>('app_settings');
+          return settings[0] ?? null;
+      }
+      await delay(300); return MOCK_SETTINGS;
+  },
+  updateSettings: async (s: AppSettings) => {
+      if (isSupabaseReady()) {
+          const existing = await fetchCollection<AppSettings>('app_settings');
+          if (existing[0] && (existing[0] as any).id) return updatePayload<AppSettings & { id: string }>('app_settings', { ...(existing[0] as AppSettings & { id: string }), ...s });
+          return insertPayload<AppSettings>('app_settings', { ...s, id: (existing[0] as any)?.id });
+      }
+      await delay(300); MOCK_SETTINGS = s; return s;
+  },
 
-  getNotifications: async (): Promise<Notification[]> => { 
-      await delay(300); 
-      // Return a sample notification to demonstrate the system
+  getNotifications: async (): Promise<Notification[]> => {
+      if (isSupabaseReady()) return fetchCollection<Notification>('notifications');
+      await delay(300);
       return [
           {
               id: 'notif-1',
@@ -240,7 +423,7 @@ export const api = {
               read: false,
               linkTo: 'CREW'
           }
-      ]; 
+      ];
   },
 
   // --- NEW FINANCIAL ENDPOINTS ---

@@ -385,6 +385,7 @@ export interface RolePermissions {
 }
 
 export interface AppSettings {
+    id?: string;
     companyName: string;
     pIva: string;
     address: string;

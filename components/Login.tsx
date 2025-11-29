@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { api } from '../services/api';
 import { Loader2 } from 'lucide-react';
+import { isSupabaseConfigured, supabaseClient } from '../services/supabaseClient';
 
 interface LoginProps {
     onLoginSuccess: (user: any) => void;
@@ -11,11 +12,13 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [info, setInfo] = useState('');
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setError('');
+        setInfo('');
         
         try {
             const data = await api.login(email, password);
@@ -32,6 +35,25 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         }
     };
 
+    const handleMagicLink = async () => {
+        setError('');
+        setInfo('');
+
+        if (!isSupabaseConfigured || !supabaseClient) {
+            setError('Configura SUPABASE_URL e SUPABASE_ANON_KEY per usare il magic link.');
+            return;
+        }
+
+        setLoading(true);
+        const { error: otpError } = await supabaseClient.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin } });
+        if (otpError) {
+            setError(otpError.message);
+        } else {
+            setInfo('Controlla la tua casella email per completare il login.');
+        }
+        setLoading(false);
+    };
+
     return (
         <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-4">
             <div className="w-full max-w-md bg-[#1e293b] rounded-2xl shadow-2xl border border-[#334155] p-8 animate-fade-in">
@@ -46,6 +68,11 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 {error && (
                     <div className="bg-red-900/30 border border-red-800 text-red-300 p-3 rounded-lg text-sm mb-4 text-center">
                         {error}
+                    </div>
+                )}
+                {info && (
+                    <div className="bg-emerald-900/30 border border-emerald-800 text-emerald-200 p-3 rounded-lg text-sm mb-4 text-center">
+                        {info}
                     </div>
                 )}
 
@@ -73,13 +100,21 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                         />
                     </div>
 
-                    <button 
-                        type="submit" 
+                    <button
+                        type="submit"
                         disabled={loading}
                         className="w-full bg-[#f59e0b] hover:bg-amber-400 text-[#0f172a] font-bold py-3 rounded-lg transition-all shadow-lg shadow-amber-500/10 flex items-center justify-center gap-2 mt-4"
                     >
                         {loading && <Loader2 size={18} className="animate-spin"/>}
                         {loading ? 'Accesso in corso...' : 'Accedi'}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleMagicLink}
+                        disabled={loading || !email}
+                        className="w-full border border-[#334155] text-white font-semibold py-3 rounded-lg transition-all hover:border-amber-400 hover:text-amber-200 mt-3"
+                    >
+                        Ricevi link via email
                     </button>
                 </form>
 

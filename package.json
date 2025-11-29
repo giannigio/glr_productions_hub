@@ -7,10 +7,16 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "supabase:db:reset": "supabase db reset --skip-git",
+    "supabase:db:push": "supabase db push --skip-git",
+    "supabase:db:seed": "supabase db reset --seed --skip-git"
   },
   "dependencies": {
     "@google/genai": "^0.1.3",
+    "@supabase/supabase-js": "^2.45.4",
     "lucide-react": "^0.344.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

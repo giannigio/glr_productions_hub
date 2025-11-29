@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import type { Session } from '@supabase/supabase-js';
 import { Dashboard } from './components/Dashboard';
 import { Jobs } from './components/Jobs';
 import { Crew } from './components/Crew';
@@ -42,6 +43,7 @@ import {
   ShoppingBag,
   PieChart,
 } from 'lucide-react';
+import { supabaseClient, isSupabaseConfigured } from './services/supabaseClient';
 
 type TabId =
   | 'DASHBOARD'
@@ -71,19 +73,56 @@ const App: React.FC = () => {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Authentication State - DEMO MODE: Default to ADMIN
+  // Authentication State
   const [currentUser, setCurrentUser] = useState<{
     id: string;
     name: string;
     role: SystemRole;
-  } | null>({
-    id: 'demo-admin-id',
-    name: 'Admin Demo',
-    role: 'ADMIN',
-  });
+  } | null>(null);
 
   useEffect(() => {
-    setIsLoading(false);
+    let unsubscribe: (() => void) | undefined;
+
+    const loadProfileFromSession = async (session: Session | null) => {
+      if (session?.user) {
+        const profile = await api.getProfile(session.user.id);
+        setCurrentUser(
+          profile ?? {
+            id: session.user.id,
+            name: session.user.email ?? 'Utente',
+            role: 'TECH',
+          },
+        );
+      } else if (!isSupabaseConfigured) {
+        setCurrentUser({ id: 'demo-admin-id', name: 'Admin Demo', role: 'ADMIN' });
+      } else {
+        setCurrentUser(null);
+      }
+    };
+
+    const bootstrapAuth = async () => {
+      if (isSupabaseConfigured && supabaseClient) {
+        const { data, error } = await supabaseClient.auth.getSession();
+        if (error) console.error('Errore recupero sessione Supabase', error);
+        await loadProfileFromSession(data.session ?? null);
+
+        const { data: authListener } = supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+          await loadProfileFromSession(session ?? null);
+        });
+
+        unsubscribe = () => authListener.subscription.unsubscribe();
+      } else {
+        setCurrentUser({ id: 'demo-admin-id', name: 'Admin Demo', role: 'ADMIN' });
+      }
+
+      setIsLoading(false);
+    };
+
+    bootstrapAuth();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -127,7 +166,13 @@ const App: React.FC = () => {
     loadData();
   }, [currentUser]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (isSupabaseConfigured && supabaseClient) {
+      await supabaseClient.auth.signOut();
+      setCurrentUser(null);
+      return;
+    }
+
     if (confirm('Sei in modalità Demo. Vuoi uscire?')) {
       setCurrentUser(null);
     }
